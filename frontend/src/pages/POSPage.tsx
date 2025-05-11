@@ -10,6 +10,7 @@ import { PlusCircle, Trash2, Search, XCircle, AlertTriangle, ShoppingCart } from
 import type { Product } from '../types/product';
 import { OrderFormModal } from '../components/orders/OrderFormModal';
 import type { CreateOrderItemDto } from '../types/order';
+import type { Order } from '../types/order';
 
 interface CartItem {
   productId: number;
@@ -125,11 +126,26 @@ export function POSPage() {
     setIsOrderModalOpen(false);
   };
 
-  const handleOrderCreated = () => {
+  const handleOrderCreated = async (createdOrder: Order) => {
     setIsOrderModalOpen(false);
     setCart([]);
     queryClient.invalidateQueries({ queryKey: ['orders'] });
     alert('¡Orden creada exitosamente!');
+
+    // INICIO: Lógica de Impresión
+    try {
+      // 'createdOrder' contiene el ID y los datos de la orden
+      // Asumimos que la variable de entorno VITE_API_URL está configurada
+      const apiUrl = import.meta.env.VITE_API_URL || '';
+      await axios.post(`${apiUrl}/api/orders/${createdOrder.id}/print`);
+      console.log('Solicitud de impresión enviada para la orden:', createdOrder.id);
+      // Opcional: Mostrar notificación de éxito de impresión (ej. usando un toast)
+    } catch (error) {
+      console.error('Error al solicitar la impresión:', error);
+      // Opcional: Mostrar notificación de error de impresión al usuario
+      alert('La orden fue creada, pero hubo un error al intentar imprimir el recibo. Revise la conexión de la impresora y la configuración del backend.');
+    }
+    // FIN: Lógica de Impresión
   };
 
   const cartItemsForModal: CreateOrderItemDto[] = cart.map(item => ({
