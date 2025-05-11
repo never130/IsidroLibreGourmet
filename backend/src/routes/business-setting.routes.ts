@@ -1,0 +1,27 @@
+import { Router } from 'express';
+import { BusinessSettingController } from '../controllers/business-setting.controller';
+import { authMiddleware, checkRole } from '../middleware/auth.middleware';
+import { UserRole } from '../entities/User';
+import { validateDto } from '../middleware/validation.middleware';
+import { BusinessSettingDto } from '../dtos/business-setting.dto';
+
+const router = Router();
+const controller = new BusinessSettingController();
+
+// Obtener la configuración del negocio (accesible para cualquier usuario autenticado)
+router.get(
+    '/', 
+    authMiddleware, 
+    controller.getSettings
+);
+
+// Actualizar la configuración del negocio (solo OWNER o ADMIN)
+router.put(
+    '/', 
+    authMiddleware, 
+    checkRole([UserRole.OWNER, UserRole.ADMIN]),
+    validateDto(BusinessSettingDto),
+    controller.updateSettings
+);
+
+export default router; 
