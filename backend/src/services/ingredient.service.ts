@@ -40,10 +40,16 @@ export class IngredientService {
       throw new HttpException(`Ingredient with name "${createDto.name}" already exists`, HttpStatus.CONFLICT);
     }
 
-    const ingredient = this.ingredientRepository.create({
-      ...createDto,
-      unitOfMeasure, // Asigna la entidad completa
-    });
+    const ingredient = new Ingredient();
+    ingredient.name = createDto.name;
+    ingredient.description = createDto.description || undefined;
+    ingredient.stock = createDto.stock;
+    ingredient.unitOfMeasureId = createDto.unitOfMeasureId;
+    ingredient.lowStockThreshold = createDto.lowStockThreshold;
+    ingredient.costPrice = createDto.costPrice;
+    ingredient.supplier = createDto.supplier;
+    ingredient.unitOfMeasure = unitOfMeasure;
+
     return this.ingredientRepository.save(ingredient);
   }
 
@@ -58,8 +64,7 @@ export class IngredientService {
   async update(id: number, updateDto: UpdateIngredientDto): Promise<Ingredient | null> {
     const ingredient = await this.ingredientRepository.findOneBy({ id });
     if (!ingredient) {
-      // Devuelve null si no se encuentra para que el controlador decida si es 404
-      return null; 
+      return null;
     }
 
     let unitOfMeasure = ingredient.unitOfMeasure;
@@ -72,19 +77,21 @@ export class IngredientService {
     }
     
     if (updateDto.name && updateDto.name !== ingredient.name) {
-        const existingIngredient = await this.ingredientRepository.findOneBy({ name: updateDto.name });
-        if (existingIngredient && existingIngredient.id !== id) {
-            throw new HttpException(`Another ingredient with name "${updateDto.name}" already exists`, HttpStatus.CONFLICT);
-        }
+      const existingIngredient = await this.ingredientRepository.findOneBy({ name: updateDto.name });
+      if (existingIngredient && existingIngredient.id !== id) {
+        throw new HttpException(`Another ingredient with name "${updateDto.name}" already exists`, HttpStatus.CONFLICT);
+      }
     }
     
-    // Crear un objeto para merge excluyendo 'unitOfMeasureId' si está presente, ya que manejamos 'unitOfMeasure'
     const { unitOfMeasureId, ...restOfUpdateDto } = updateDto;
 
-    this.ingredientRepository.merge(ingredient, {
-        ...restOfUpdateDto,
-        unitOfMeasure, 
-    });
+    if (restOfUpdateDto.name) ingredient.name = restOfUpdateDto.name;
+    if (restOfUpdateDto.description !== undefined) ingredient.description = restOfUpdateDto.description || undefined;
+    if (restOfUpdateDto.lowStockThreshold !== undefined) ingredient.lowStockThreshold = restOfUpdateDto.lowStockThreshold;
+    if (restOfUpdateDto.costPrice !== undefined) ingredient.costPrice = restOfUpdateDto.costPrice;
+    if (restOfUpdateDto.supplier !== undefined) ingredient.supplier = restOfUpdateDto.supplier;
+    ingredient.unitOfMeasure = unitOfMeasure;
+
     return this.ingredientRepository.save(ingredient);
   }
 

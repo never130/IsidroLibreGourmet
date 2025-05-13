@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { ReportController } from '../controllers/report.controller';
-import { authMiddleware, checkRole } from '../middleware/auth.middleware';
+import { authMiddleware } from '../middleware/auth.middleware';
+import { roleMiddleware } from '../middleware/role.middleware';
 import { UserRole } from '../entities/User';
 import { validateDto } from '../middleware/validation.middleware';
 import { ReportParamsDto, TopProductsParamsDto, LowStockParamsDto } from '../dtos/report.dto';
@@ -9,7 +10,7 @@ const router = Router();
 const reportController = new ReportController();
 
 // Middleware de autenticación y rol base para todas las rutas de reportes
-router.use(authMiddleware, checkRole([UserRole.OWNER, UserRole.DEVELOPER, UserRole.ADMIN])); // Incluimos ADMIN
+router.use(authMiddleware, roleMiddleware([UserRole.OWNER, UserRole.DEVELOPER, UserRole.ADMIN])); // Incluimos ADMIN
 
 // Rutas de Reportes de Ventas
 router.get('/summary', 

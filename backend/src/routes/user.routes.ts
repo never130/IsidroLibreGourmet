@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { UserController } from '../controllers/user.controller';
-import { authMiddleware, checkRole } from '../middleware/auth.middleware';
+import { authMiddleware } from '../middleware/auth.middleware';
+import { roleMiddleware } from '../middleware/role.middleware';
 import { UserRole } from '../entities/User';
 import { validateDto } from '../middleware/validation.middleware';
 import { CreateUserDto, UpdateUserDto, LoginDto, UpdateProfileDto } from '../dtos/user.dto';
@@ -27,10 +28,10 @@ router.put(
 );
 
 // Rutas protegidas (para administración de usuarios por roles OWNER/DEVELOPER)
-router.get('/', authMiddleware, checkRole([UserRole.OWNER, UserRole.DEVELOPER, UserRole.ADMIN]), (req, res) => userController.getAll(req, res));
-router.get('/:id', authMiddleware, checkRole([UserRole.OWNER, UserRole.DEVELOPER, UserRole.ADMIN]), (req, res) => userController.getById(req, res));
-router.post('/', authMiddleware, checkRole([UserRole.OWNER, UserRole.DEVELOPER, UserRole.ADMIN]), validateDto(CreateUserDto), (req, res) => userController.create(req, res));
-router.patch('/:id', authMiddleware, checkRole([UserRole.OWNER, UserRole.DEVELOPER, UserRole.ADMIN]), validateDto(UpdateUserDto), (req, res) => userController.update(req, res));
-router.delete('/:id', authMiddleware, checkRole([UserRole.OWNER, UserRole.DEVELOPER, UserRole.ADMIN]), (req, res) => userController.delete(req, res));
+router.get('/', authMiddleware, roleMiddleware([UserRole.ADMIN]), (req, res) => userController.getAll(req, res));
+router.get('/:id', authMiddleware, roleMiddleware([UserRole.ADMIN]), (req, res) => userController.getById(req, res));
+router.post('/', authMiddleware, roleMiddleware([UserRole.ADMIN]), validateDto(CreateUserDto), (req, res) => userController.create(req, res));
+router.patch('/:id', authMiddleware, roleMiddleware([UserRole.ADMIN]), validateDto(UpdateUserDto), (req, res) => userController.update(req, res));
+router.delete('/:id', authMiddleware, roleMiddleware([UserRole.ADMIN]), (req, res) => userController.delete(req, res));
 
 export default router; 

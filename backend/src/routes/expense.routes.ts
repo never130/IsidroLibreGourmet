@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { ExpenseController } from '../controllers/expense.controller';
-import { authMiddleware, checkRole } from '../middleware/auth.middleware';
+import { authMiddleware } from '../middleware/auth.middleware';
+import { roleMiddleware } from '../middleware/role.middleware';
 import { UserRole } from '../entities/User';
 import { validateDto } from '../middleware/validation.middleware';
 import { CreateExpenseDto, UpdateExpenseDto } from '../dtos/expense.dto';
@@ -22,21 +23,21 @@ router.get('/:id', expenseController.getById.bind(expenseController));
 // Rutas con protección de roles específica y validación de DTO
 router.post('/', 
   // authMiddleware ya está aplicado globalmente para estas rutas por router.use()
-  checkRole([UserRole.OWNER, UserRole.DEVELOPER, UserRole.CASHIER]), // Permitir a CAJERO crear gastos
+  roleMiddleware([UserRole.OWNER, UserRole.DEVELOPER, UserRole.CASHIER]), // Permitir a CAJERO crear gastos
   validateDto(CreateExpenseDto), 
   expenseController.create.bind(expenseController)
 );
 
 router.patch('/:id', 
   // authMiddleware ya está aplicado globalmente
-  checkRole([UserRole.OWNER, UserRole.DEVELOPER]), 
+  roleMiddleware([UserRole.OWNER, UserRole.DEVELOPER]), 
   validateDto(UpdateExpenseDto), 
   expenseController.update.bind(expenseController)
 );
 
 router.delete('/:id', 
   // authMiddleware ya está aplicado globalmente
-  checkRole([UserRole.OWNER, UserRole.DEVELOPER]), 
+  roleMiddleware([UserRole.OWNER, UserRole.DEVELOPER]), 
   expenseController.delete.bind(expenseController)
 );
 
