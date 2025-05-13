@@ -1,11 +1,13 @@
 import { Order } from './order'; // Puede ser necesario si User incluye lista de orders
-import { UserRole } from './auth'; // <-- Importar UserRole
+import { UserRole as AuthUserRole } from './auth'; // <-- Importar UserRole y renombrar
+
+export { AuthUserRole as UserRole }; // Re-exportar
 
 // Interfaz para la información resumida del usuario, ej: para createdBy en Order
 export interface UserSummary {
   id: number;
   username: string;
-  role?: UserRole; // Role podría ser útil en resúmenes
+  role?: AuthUserRole; // Role podría ser útil en resúmenes
 }
 
 // Interfaz para el objeto User completo (como se recibiría del backend, ej: /api/users/profile)
@@ -15,7 +17,7 @@ export interface User {
   firstName: string; // Asumimos que siempre habrá un firstName
   lastName: string;  // Asumimos que siempre habrá un lastName
   // email?: string | null; // Comentado si no es un campo principal para el CRUD de usuarios
-  role: UserRole;
+  role: AuthUserRole;
   isActive: boolean;
   lastLogin?: string | null; // Asumir que fechas vienen como string ISO
   // orders?: Partial<Order>[]; // Omitir si no es necesario en el contexto general del usuario
@@ -30,7 +32,7 @@ export interface CreateUserDto {
   lastName: string;
   password?: string; // Password es usualmente requerido en la creación.
                    // El backend lo esperará. Frontend no lo debe enviar vacío.
-  role: UserRole;
+  role: AuthUserRole;
   isActive?: boolean; // Opcional, el backend podría tener un default (e.g., true)
 }
 
@@ -40,7 +42,7 @@ export interface CreateUserDto {
 export interface UpdateUserDto {
   firstName?: string;
   lastName?: string;
-  role?: UserRole;
+  role?: AuthUserRole;
   isActive?: boolean;
   password?: string; // Añadido para permitir cambio de contraseña opcional
 }
@@ -53,7 +55,7 @@ export type UserFormData = {
   lastName: string;
   password?: string;        // Opcional en el form, validación Zod se encarga del resto.
   confirmPassword?: string; 
-  role: UserRole;
+  role: AuthUserRole;
   isActive: boolean;
 };
 

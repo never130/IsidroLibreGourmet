@@ -1,6 +1,8 @@
 import type { Product } from './product';
 import type { UserSummary } from './user';
-import { PaymentMethod } from './common';
+import { PaymentMethod as CommonPaymentMethod } from './common';
+
+export { CommonPaymentMethod as PaymentMethod };
 
 export enum OrderType {
   DINE_IN = 'dine_in',
@@ -33,7 +35,7 @@ export interface Order {
   notes?: string | null;
   items: OrderItem[];
   total: number;
-  paymentMethod: PaymentMethod;
+  paymentMethod: CommonPaymentMethod;
   createdBy?: UserSummary;
   createdById: number;
   createdAt: string;
@@ -51,7 +53,7 @@ export interface CreateOrderDto {
   customerPhone?: string | null;
   address?: string | null;
   items: CreateOrderItemDto[];
-  paymentMethod: PaymentMethod;
+  paymentMethod: CommonPaymentMethod;
   notes?: string | null;
 }
 
@@ -67,7 +69,7 @@ export interface CreateOrderPOSItemDto {
 
 export interface CreateOrderPOSDto {
   items: CreateOrderPOSItemDto[];
-  paymentMethod: PaymentMethod;
+  paymentMethod: CommonPaymentMethod;
   totalAmount: number;
   notes?: string;
 } 
