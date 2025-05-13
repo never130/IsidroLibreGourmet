@@ -1,4 +1,5 @@
 import type { User } from './user';
+import { PaymentMethod } from './common';
 
 export enum ExpenseCategory {
   RENT = 'RENT',
@@ -8,12 +9,6 @@ export enum ExpenseCategory {
   MAINTENANCE = 'MAINTENANCE',
   MARKETING = 'MARKETING',
   OTHER = 'OTHER'
-}
-
-export enum PaymentMethod {
-  CASH = 'cash',
-  CARD = 'card',
-  TRANSFER = 'transfer'
 }
 
 export interface Expense {

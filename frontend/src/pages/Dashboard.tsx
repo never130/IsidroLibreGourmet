@@ -10,10 +10,9 @@ const fetchDashboardSummary = async (): Promise<DashboardSummaryData> => {
   const { data } = await axios.get('/api/dashboard/summary');
   return data;
 };
-
 export function Dashboard() {
   const { user } = useAuth();
-  // Usamos la sintaxis de objeto para useQuery y especificamos el tipo de error explícitamente
+
   const { 
     data: summary, 
     isLoading, 
@@ -26,12 +25,13 @@ export function Dashboard() {
   });
 
   if (isLoading) return <p className="text-center text-gray-500 py-8">Cargando datos del dashboard...</p>;
-  // Aseguramos que error tiene una propiedad message
   if (isError) return <p className="text-center text-red-500 py-8">Error al cargar datos del dashboard: {error?.message || 'Error desconocido'}</p>;
-  // Si no hay summary después de cargar y sin errores, mostramos un mensaje.
   if (!summary) return <p className="text-center text-gray-500 py-8">No hay datos disponibles para mostrar.</p>;
 
-  // En este punto, summary debería ser del tipo DashboardSummaryData
+  // Asegúrate de que totalAmount es un número antes de usarlo
+  const salesTodayAmount = typeof summary.salesToday.totalAmount === 'number' ? summary.salesToday.totalAmount.toFixed(2) : '0.00';
+  const expensesThisMonthAmount = typeof summary.expensesThisMonth.totalAmount === 'number' ? summary.expensesThisMonth.totalAmount.toFixed(2) : '0.00';
+
   return (
     <MainLayout title="Dashboard">
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -47,7 +47,7 @@ export function Dashboard() {
               <DollarSign className="h-5 w-5 text-gray-500 dark:text-gray-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">${summary.salesToday.totalAmount.toFixed(2)}</div>
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">${salesTodayAmount}</div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 {summary.salesToday.orderCount} pedidos hoy
               </p>
@@ -75,21 +75,14 @@ export function Dashboard() {
               <CreditCard className="h-5 w-5 text-gray-500 dark:text-gray-400" /> 
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-gray-900 dark:text-white">${summary.expensesThisMonth.totalAmount.toFixed(2)}</div>
+              <div className="text-2xl font-bold text-gray-900 dark:text-white">${expensesThisMonthAmount}</div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 {summary.expensesThisMonth.expenseCount} gastos registrados
               </p>
             </CardContent>
           </Card>
         </div>
-
-        {/* 
-          Aquí podrías añadir más secciones si expandimos el endpoint del backend, por ejemplo:
-          - Productos más vendidos
-          - Actividad reciente
-          - Gráficos de rendimiento (requeriría una librería de gráficos)
-        */}
       </div>
     </MainLayout>
   );
-} 
+}

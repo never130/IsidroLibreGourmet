@@ -1,155 +1,89 @@
-# Isidro Libre Gourmet 🍽️
+# Isidro Libre Gourmet - Sistema de Gestión Integral
 
-Sistema de gestión para restaurantes que permite administrar pedidos, productos, inventario y generar reportes.
+Bienvenido al repositorio del proyecto Isidro Libre Gourmet, un sistema de gestión completo diseñado para restaurantes y negocios de comida. Esta solución se compone de un backend robusto para la gestión de datos y lógica de negocio, y un frontend intuitivo para la interacción del usuario.
 
-## Características Principales 🌟
+## Descripción General del Proyecto
 
-### Gestión de Pedidos
-- Creación y seguimiento de pedidos en tiempo real
-- Soporte para diferentes tipos de pedidos (local, para llevar, delivery)
-- Impresión automática de tickets en impresora térmica
-- Reimpresión de tickets
-- Actualización de estado de pedidos
-- Cancelación de pedidos
+Isidro Libre Gourmet tiene como objetivo proporcionar una herramienta digital completa para administrar eficientemente las operaciones diarias de un negocio gastronómico. Esto incluye:
 
-### Gestión de Productos
-- Catálogo completo de productos
-- Control de inventario
-- Categorización de productos
-- Gestión de precios y costos
-- Alertas de stock bajo
+*   Gestión de Pedidos (para comer en local, para llevar, delivery)
+*   Administración de Productos y Menú (con control de stock)
+*   Gestión de Clientes
+*   Registro y Control de Gastos
+*   Gestión de Usuarios y Roles (cajeros, administradores, etc.)
+*   Generación de Reportes básicos
+*   Impresión de Comandas y Recibos
 
-### Reportes y Estadísticas
-- Dashboard con métricas clave
-- Estadísticas de ventas
-- Productos más vendidos
-- Análisis de rendimiento por producto
-- Filtros por rango de fechas
-- Visualizaciones gráficas
+## Componentes del Sistema
 
-### Sistema de Usuarios
-- Autenticación segura
-- Roles de usuario (Administrador, Cajero)
-- Control de acceso basado en roles
+El proyecto está dividido en dos componentes principales:
 
-## Requisitos Técnicos 🛠️
+### 1. Backend
 
-### Backend
-- Node.js (v14 o superior)
-- PostgreSQL
-- TypeScript
-- Express.js
-- TypeORM
-- JWT para autenticación
+*   **Propósito**: API RESTful que maneja toda la lógica de negocio, la interacción con la base de datos y la autenticación.
+*   **Tecnologías Clave**: Node.js, Express.js, TypeScript, TypeORM, PostgreSQL.
+*   **Ubicación**: Directorio `/backend`
+*   **README Detallado**: [backend/README.md](./backend/README.md)
 
-### Frontend
-- React
-- TypeScript
-- Tailwind CSS
-- Chart.js para visualizaciones
-- React Query para gestión de estado
+### 2. Frontend
 
-### Hardware
-- Impresora térmica compatible con ESC/POS
-- Conexión de red para la impresora
+*   **Propósito**: Interfaz de usuario web interactiva que permite a los usuarios interactuar con el sistema.
+*   **Tecnologías Clave**: React, Vite, TypeScript, Tailwind CSS, TanStack Query.
+*   **Ubicación**: Directorio `/frontend`
+*   **README Detallado**: [frontend/README.md](./frontend/README.md)
 
-## Instalación 📥
+## Cómo Empezar
 
-1. Clonar el repositorio:
-```bash
-git clone https://github.com/tu-usuario/isidro-libre-gourmet.git
-cd isidro-libre-gourmet
+Para poner en marcha el sistema completo, necesitarás configurar y ejecutar tanto el backend como el frontend.
+
+### Prerrequisitos Generales
+
+*   Node.js (v18 o superior recomendado)
+*   npm (v9 o superior recomendado) o yarn
+*   Git
+*   Una instancia de PostgreSQL en ejecución.
+
+### Pasos Generales
+
+1.  **Clonar el Repositorio**:
+    ```bash
+    git clone <url-del-repositorio-isidro-libre-gourmet>
+    cd IsidroLibreGourmet
+    ```
+
+2.  **Configurar y Ejecutar el Backend**:
+    *   Navega al directorio del backend: `cd backend`
+    *   Sigue las instrucciones detalladas en el [README del Backend](./backend/README.md) para instalar dependencias, configurar variables de entorno (base de datos, JWT, impresoras) y arrancar el servidor.
+
+3.  **Configurar y Ejecutar el Frontend**:
+    *   Navega al directorio del frontend: `cd ../frontend` (o `cd frontend` desde la raíz del proyecto)
+    *   Sigue las instrucciones detalladas en el [README del Frontend](./frontend/README.md) para instalar dependencias, configurar variables de entorno (principalmente la URL del API del backend) y arrancar la aplicación de desarrollo.
+
+Una vez que ambos servicios (backend y frontend) estén en ejecución, deberías poder acceder a la aplicación frontend a través de tu navegador (generalmente en una dirección como `http://localhost:5173`) y esta se comunicará con el backend (generalmente en `http://localhost:3000`).
+
+## Estructura del Repositorio
+
+```
+IsidroLibreGourmet/
+├── backend/        # Código fuente y README del Backend
+│   ├── src/
+│   ├── package.json
+│   └── README.md
+├── frontend/       # Código fuente y README del Frontend
+│   ├── src/
+│   ├── package.json
+│   └── README.md
+└── README.md       # Este archivo (README Principal)
 ```
 
-2. Instalar dependencias del backend:
-```bash
-cd backend
-npm install
-```
+## Contribuciones
 
-3. Instalar dependencias del frontend:
-```bash
-cd ../frontend
-npm install
-```
+Las contribuciones son bienvenidas. Por favor, consulta los READMEs específicos de cada componente para más detalles sobre cómo contribuir a cada parte del proyecto.
 
-4. Configurar variables de entorno:
-Crear archivo `.env` en la carpeta `backend`:
-```env
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=tu_contraseña
-DB_NAME=isidro_libre_gourmet
-JWT_SECRET=tu_secreto_jwt
-PRINTER_IP=192.168.1.100
-PRINTER_PORT=9100
-```
+## Licencia
 
-5. Iniciar la base de datos:
-```bash
-# Asegúrate de tener PostgreSQL instalado y corriendo
-createdb isidro_libre_gourmet
-```
+Este proyecto puede estar bajo una licencia específica. Consulta el archivo `LICENSE` en el directorio correspondiente si existe. (Nota: Se añadió una licencia ISC en el backend/package.json, considera añadir un archivo LICENSE.md en la raíz o en cada subproyecto).
 
-6. Iniciar el servidor de desarrollo:
-```bash
-# Terminal 1 (Backend)
-cd backend
-npm run dev
+---
 
-# Terminal 2 (Frontend)
-cd frontend
-npm run dev
-```
-
-## Uso 🚀
-
-1. Acceder a la aplicación:
-   - URL: `http://localhost:5173`
-   - Usuario por defecto: `admin`
-   - Contraseña: `admin123`
-
-2. Gestión de Pedidos:
-   - Crear nuevo pedido
-   - Seleccionar productos
-   - Especificar tipo de pedido
-   - Imprimir ticket
-   - Actualizar estado
-
-3. Gestión de Productos:
-   - Agregar/editar productos
-   - Actualizar inventario
-   - Configurar precios
-   - Ver alertas de stock
-
-4. Reportes:
-   - Seleccionar rango de fechas
-   - Ver estadísticas de ventas
-   - Analizar productos más vendidos
-   - Exportar datos
-
-## Contribución 🤝
-
-1. Fork el proyecto
-2. Crear una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abrir un Pull Request
-
-## Licencia 📄
-
-Este proyecto está bajo la Licencia MIT - ver el archivo [LICENSE.md](LICENSE.md) para más detalles.
-
-## Contacto 📧
-
-- Nombre: [Tu Nombre]
-- Email: [tu@email.com]
-- Proyecto: [https://github.com/tu-usuario/isidro-libre-gourmet]
-
-## Agradecimientos 🙏
-
-- [TypeORM](https://typeorm.io/)
-- [React](https://reactjs.org/)
-- [Tailwind CSS](https://tailwindcss.com/)
-- [Chart.js](https://www.chartjs.org/) 
+Por favor, revisa los READMEs individuales en las carpetas `backend` y `frontend` para obtener instrucciones de configuración y desarrollo más detalladas. 

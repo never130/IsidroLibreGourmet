@@ -12,8 +12,11 @@ export class OrderItem {
   order: Order;
 
   @ManyToOne(() => Product)
-  @JoinColumn()
+  @JoinColumn({ name: 'productId' })
   product: Product;
+
+  @Column()
+  productId: number;
 
   @Column()
   quantity: number;

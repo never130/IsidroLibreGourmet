@@ -1,13 +1,5 @@
 import { Order } from './order'; // Puede ser necesario si User incluye lista de orders
-
-// Roles de Usuario (deben coincidir con el backend UserRole)
-export enum UserRole {
-  OWNER = 'owner',
-  ADMIN = 'admin',       // Añadir ADMIN si se usa
-  CASHIER = 'cashier',
-  // DEVELOPER = 'developer', // Comentado si no es un rol estándar para este sistema
-  // Asegurarse que todos los roles del backend estén aquí si se usan en el frontend
-}
+import { UserRole } from './auth'; // <-- Importar UserRole
 
 // Interfaz para la información resumida del usuario, ej: para createdBy en Order
 export interface UserSummary {

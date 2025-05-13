@@ -1,6 +1,7 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-// import { QueryClient, QueryClientProvider } from '@tanstack/react-query'; // ELIMINADO
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { PrivateRoute } from './components/auth/PrivateRoute';
 import { Layout } from './components/layout/Layout';
@@ -14,8 +15,13 @@ import { Settings } from './pages/Settings';
 import { POSPage } from './pages/POSPage';
 import { NotFound } from './pages/NotFound';
 import { UsersPage } from './pages/UsersPage';
+import { MainLayout } from './components/layout/MainLayout';
+import { Toaster } from "@/components/ui/toaster";
+import { UnitsOfMeasurePage } from './pages/Inventory/UnitsOfMeasurePage';
+import IngredientsPage from './pages/Inventory/IngredientsPage';
+import RecipesPage from './pages/Inventory/RecipesPage';
 
-// const queryClient = new QueryClient(); // ELIMINADO
+const queryClient = new QueryClient();
 
 // Componente para rutas privadas
 const PrivateRouteComponent: React.FC<{ children: JSX.Element }> = ({ children }) => {
@@ -30,9 +36,9 @@ const PrivateRouteComponent: React.FC<{ children: JSX.Element }> = ({ children }
 
 export function App() {
   return (
-    // <QueryClientProvider client={queryClient}> // ELIMINADO
+    <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Router>
+        <BrowserRouter>
           <Routes>
             {/* Rutas Públicas */}
             <Route path="/login" element={<Login />} />
@@ -40,28 +46,34 @@ export function App() {
             {/* Rutas Privadas */}
             <Route
               path="/"
-              element={<PrivateRoute><Dashboard /></PrivateRoute>}
-            />
-            <Route
-              path="/dashboard"
-              element={<PrivateRoute><Dashboard /></PrivateRoute>}
-            />
-            <Route path="/users" element={<PrivateRoute><UsersPage /></PrivateRoute>} />
-            <Route
-              path="/products"
-              element={<PrivateRoute><Products /></PrivateRoute>}
-            />
-            <Route
-              path="/orders"
-              element={<PrivateRoute><Orders /></PrivateRoute>}
-            />
-            <Route
-              path="/pos"
-              element={<PrivateRoute><POSPage /></PrivateRoute>}
-            />
-            <Route
-              path="/settings"
-              element={<PrivateRoute><Settings /></PrivateRoute>}
+              element={
+                <PrivateRoute>
+                  <MainLayout title="Isidro Libre Gourmet">
+                    <Routes>
+                      <Route path="/dashboard" element={<Dashboard />} />
+                      <Route path="/products" element={<Products />} />
+                      <Route path="/inventory/units" element={<UnitsOfMeasurePage />} />
+                      <Route path="/inventory/ingredients" element={<IngredientsPage />} />
+                      <Route path="/inventory/recipes" element={<RecipesPage />} />
+                      <Route path="/users" element={<UsersPage />} />
+                      <Route
+                        path="/orders"
+                        element={<Orders />}
+                      />
+                      <Route
+                        path="/pos"
+                        element={<POSPage />}
+                      />
+                      <Route
+                        path="/settings"
+                        element={<Settings />}
+                      />
+                      <Route path="settings/users" element={<UsersPage />} />
+                      <Route index element={<Navigate to="dashboard" replace />} />
+                    </Routes>
+                  </MainLayout>
+                </PrivateRoute>
+              }
             />
 
             {/* Redirecciones */}
@@ -70,8 +82,10 @@ export function App() {
             {/* 404 */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-        </Router>
+          <Toaster />
+        </BrowserRouter>
       </AuthProvider>
-    // </QueryClientProvider> // ELIMINADO
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
   );
 }

@@ -5,22 +5,17 @@
 
 import 'reflect-metadata';
 import 'dotenv/config';
-import express from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import cors from 'cors';
 import { AppDataSource } from './data-source';
 import { User, UserRole } from './entities/User';
 import bcrypt from 'bcrypt';
-import authRoutes from './routes/auth.routes';
-import orderRoutes from './routes/order.routes';
-import productRoutes from './routes/product.routes';
-import userRoutes from './routes/user.routes';
-import expenseRoutes from './routes/expense.routes';
-import reportRoutes from './routes/report.routes';
-import dashboardRoutes from './routes/dashboard.routes';
-import businessSettingRoutes from './routes/business-setting.routes';
+import allRoutes from './routes'; // Importar el enrutador principal
+import { HttpException, HttpStatus } from './utils/HttpException';
 import dotenv from 'dotenv';
-    dotenv.config(); // Carga las variables de .env a process.env
-// dotenv
+import { QueryFailedError } from 'typeorm'; // Importar QueryFailedError
+import { JsonWebTokenError, TokenExpiredError } from 'jsonwebtoken'; // Importar errores de JWT
+dotenv.config(); // Carga las variables de .env a process.env
 
 // Inicializar la aplicación Express
 const app = express();
@@ -32,15 +27,63 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Rutas
-app.use('/api/auth', authRoutes);
-app.use('/api/orders', orderRoutes);
-app.use('/api/products', productRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/expenses', expenseRoutes);
-app.use('/api/reports', reportRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/business-settings', businessSettingRoutes);
+// Rutas principales
+app.use('/api', allRoutes); // Usar el enrutador principal bajo el prefijo /api
+
+// Middleware de manejo de errores global
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  console.error("[GLOBAL ERROR HANDLER]");
+  console.error("Message:", err.message);
+  console.error("Stack:", err.stack);
+  if (err.errors) console.error("Validation Errors:", err.errors);
+
+  if (err instanceof HttpException) {
+    return res.status(err.status).json({
+      message: err.message,
+      status: err.status,
+      errors: err.errors,
+    });
+  } 
+  
+  if (err instanceof JsonWebTokenError) {
+    return res.status(HttpStatus.UNAUTHORIZED).json({
+        message: 'Invalid token',
+        status: HttpStatus.UNAUTHORIZED,
+    });
+  }
+
+  if (err instanceof TokenExpiredError) {
+    return res.status(HttpStatus.UNAUTHORIZED).json({
+        message: 'Token expired',
+        status: HttpStatus.UNAUTHORIZED,
+    });
+  }
+
+  // Error de TypeORM (ej. violación de constraint, etc.)
+  // QueryFailedError puede tener un `code` específico de la BD (ej. '23505' para unique_violation en PostgreSQL)
+  if (err instanceof QueryFailedError) {
+    // Podríamos personalizar mensajes basados en err.driverError.code o err.message
+    // Por ejemplo, para unique violation:
+    if ((err as any).code === '23505') { // Código de PostgreSQL para unique_violation
+        return res.status(HttpStatus.CONFLICT).json({
+            message: 'Database conflict: A record with this value already exists.', // Mensaje más amigable
+            status: HttpStatus.CONFLICT,
+            detail: err.message // Opcional: err.driverError.detail para más info de la BD
+        });
+    }
+    return res.status(HttpStatus.BAD_REQUEST).json({ // O 500 si es más genérico
+      message: 'Database query failed',
+      status: HttpStatus.BAD_REQUEST,
+      detail: err.message // Es bueno enviar el mensaje de error de la BD en desarrollo/staging
+    });
+  }
+  
+  // Error por defecto
+  return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+    message: err.message || 'Internal Server Error',
+    status: HttpStatus.INTERNAL_SERVER_ERROR,
+  });
+});
 
 // Inicializar la base de datos y crear usuario por defecto
 const port = process.env.PORT || 3000;

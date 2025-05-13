@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToOne } from 'typeorm';
+import { Recipe } from './Recipe';
 
 export enum ProductCategory {
   FOOD = 'FOOD',
@@ -27,6 +28,9 @@ export class Product {
   @Column({ default: true })
   isActive: boolean;
 
+  @Column({ default: false })
+  manageStock: boolean;
+
   @Column({
     type: 'enum',
     enum: ProductCategory,
@@ -45,4 +49,7 @@ export class Product {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @OneToOne(() => Recipe, (recipe) => recipe.product, { nullable: true, cascade: true, eager: false })
+  recipe?: Recipe;
 } 

@@ -6,6 +6,10 @@ import { Order } from './entities/Order';
 import { OrderItem } from './entities/OrderItem';
 import { Expense } from './entities/Expense';
 import { BusinessSetting } from './entities/BusinessSetting';
+import { UnitOfMeasure } from './entities/UnitOfMeasure';
+import { Ingredient } from './entities/Ingredient';
+import { Recipe } from './entities/Recipe';
+import { RecipeItem } from './entities/RecipeItem';
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -14,9 +18,9 @@ export const AppDataSource = new DataSource({
   username: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
   database: process.env.DB_NAME || 'isidro_libre_gourmet',
-  synchronize: false,
+  synchronize: true,
   logging: process.env.NODE_ENV === 'development',
-  entities: [User, Product, Order, OrderItem, Expense, BusinessSetting],
+  entities: [User, Product, Order, OrderItem, Expense, BusinessSetting, UnitOfMeasure, Ingredient, Recipe, RecipeItem],
   subscribers: [],
   migrations: ['src/migrations/**/*.ts'],
   migrationsTableName: "migrations_typeorm",

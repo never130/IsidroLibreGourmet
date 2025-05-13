@@ -1,5 +1,6 @@
 import type { Product } from './product';
 import type { UserSummary } from './user';
+import { PaymentMethod } from './common';
 
 export enum OrderType {
   DINE_IN = 'dine_in',
@@ -14,18 +15,12 @@ export enum OrderStatus {
   CANCELLED = 'cancelled'
 }
 
-export enum PaymentMethod {
-  CASH = 'cash',
-  CARD = 'card',
-  OTHER = 'other'
-}
-
 export interface OrderItem {
   id: number;
   productId: number;
   product?: Partial<Product>;
   quantity: number;
-  price: number;
+  priceAtPurchase: number;
 }
 
 export interface Order {
