@@ -1,6 +1,8 @@
 import type { User } from './user';
 import { PaymentMethod } from './common';
 
+export { PaymentMethod };
+
 export enum ExpenseCategory {
   RENT = 'RENT',
   UTILITIES = 'UTILITIES',

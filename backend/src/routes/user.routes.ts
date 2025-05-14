@@ -28,10 +28,10 @@ router.put(
 );
 
 // Rutas protegidas (para administración de usuarios por roles OWNER/DEVELOPER)
-router.get('/', authMiddleware, roleMiddleware([UserRole.ADMIN]), (req, res) => userController.getAll(req, res));
-router.get('/:id', authMiddleware, roleMiddleware([UserRole.ADMIN]), (req, res) => userController.getById(req, res));
-router.post('/', authMiddleware, roleMiddleware([UserRole.ADMIN]), validateDto(CreateUserDto), (req, res) => userController.create(req, res));
-router.patch('/:id', authMiddleware, roleMiddleware([UserRole.ADMIN]), validateDto(UpdateUserDto), (req, res) => userController.update(req, res));
-router.delete('/:id', authMiddleware, roleMiddleware([UserRole.ADMIN]), (req, res) => userController.delete(req, res));
+router.get('/', authMiddleware, roleMiddleware([UserRole.OWNER, UserRole.DEVELOPER]), (req, res) => userController.getAll(req, res));
+router.get('/:id', authMiddleware, roleMiddleware([UserRole.OWNER, UserRole.DEVELOPER]), (req, res) => userController.getById(req, res));
+router.post('/', authMiddleware, roleMiddleware([UserRole.OWNER, UserRole.DEVELOPER]), validateDto(CreateUserDto), (req, res) => userController.create(req, res));
+router.patch('/:id', authMiddleware, roleMiddleware([UserRole.OWNER, UserRole.DEVELOPER]), validateDto(UpdateUserDto), (req, res) => userController.update(req, res));
+router.delete('/:id', authMiddleware, roleMiddleware([UserRole.OWNER, UserRole.DEVELOPER]), (req, res) => userController.delete(req, res));
 
 export default router; 

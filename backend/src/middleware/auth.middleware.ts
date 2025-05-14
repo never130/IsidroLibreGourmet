@@ -31,8 +31,9 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       return res.status(401).json({ message: 'No token provided' });
     }
 
+    console.log('[AUTH MIDDLEWARE] JWT_SECRET:', process.env.JWT_SECRET);
     // Usar la interfaz TokenPayload para tipar el resultado de jwt.verify
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'default_secret') as TokenPayload;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as TokenPayload;
     
     // Construir el objeto req.user con los campos esperados
     req.user = {

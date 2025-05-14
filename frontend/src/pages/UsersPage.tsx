@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import { MainLayout } from '@/components/layout/MainLayout'; // Usar MainLayout para la barra de navegación completa
+// import { MainLayout } from '@/components/layout/MainLayout'; // Eliminado
 import { Button } from '@/components/ui/button';
 import { PlusCircle, Edit, Trash2, AlertTriangle } from 'lucide-react';
 import type { User, UserRole } from '@/types/user'; // Importar tipos de usuario
@@ -61,19 +61,22 @@ export function UsersPage() {
 
   if (isLoading) {
     return (
-      <MainLayout title="Cargando Usuarios...">
+      // <MainLayout title="Cargando Usuarios..."> // Eliminado
+      <>
         <div className="container mx-auto p-4">
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           </div>
         </div>
-      </MainLayout>
+      </>
+      // </MainLayout> // Eliminado
     );
   }
 
   if (error) {
     return (
-      <MainLayout title="Error">
+      // <MainLayout title="Error"> // Eliminado
+      <>
         <div className="container mx-auto p-4">
           <div className="text-red-500 bg-red-100 p-4 rounded-md flex flex-col items-center">
             <AlertTriangle className="h-10 w-10 mb-2" />
@@ -82,7 +85,8 @@ export function UsersPage() {
             <Button onClick={() => refetch()} className="mt-4">Reintentar</Button>
           </div>
         </div>
-      </MainLayout>
+      </>
+      // </MainLayout> // Eliminado
     );
   }
 
@@ -90,7 +94,8 @@ export function UsersPage() {
   console.log('Datos de usuarios recibidos en UsersPage:', users);
 
   return (
-    <MainLayout title="Gestión de Usuarios">
+    // <MainLayout title="Gestión de Usuarios"> // Eliminado
+    <>
       <div className="container mx-auto p-4">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Gestión de Usuarios</h1>
@@ -176,7 +181,8 @@ export function UsersPage() {
           userToEdit={editingUser}
         />
       )}
-    </MainLayout>
+    </>
+    // </MainLayout> // Eliminado
   );
 }
 

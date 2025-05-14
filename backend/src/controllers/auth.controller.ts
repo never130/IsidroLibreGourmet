@@ -6,8 +6,10 @@ import jwt from 'jsonwebtoken';
 
 export class AuthController {
   async login(req: Request, res: Response) {
+    console.log('[AUTH CONTROLLER] Login endpoint hit. Body:', req.body);
     try {
       const { username, password } = req.body;
+      console.log(`[AUTH CONTROLLER] Attempting login for username: ${username}`);
 
       const userRepository = AppDataSource.getRepository(User);
       const user = await userRepository.findOne({
@@ -23,6 +25,7 @@ export class AuthController {
         return res.status(401).json({ message: 'Invalid credentials' });
       }
 
+      console.log('[AUTH CONTROLLER] JWT_SECRET:', process.env.JWT_SECRET);
       const token = jwt.sign(
         { 
           id: user.id, 

@@ -16,11 +16,11 @@ router.get(
     controller.getSettings
 );
 
-// Actualizar la configuración del negocio (solo OWNER o ADMIN)
+// Actualizar la configuración del negocio (solo OWNER o DEVELOPER)
 router.put(
     '/', 
     authMiddleware, 
-    roleMiddleware([UserRole.OWNER, UserRole.ADMIN]),
+    roleMiddleware([UserRole.OWNER, UserRole.DEVELOPER]),
     validateDto(BusinessSettingDto),
     controller.updateSettings
 );

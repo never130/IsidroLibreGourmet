@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { UserRole } from '../../types/user'; // Asumiendo que UserRole está aquí o en types/auth
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -49,18 +50,35 @@ export function MainLayout({ children, title }: MainLayoutProps) {
                 >
                   Productos
                 </Link>
-                <Link
-                  to="/expenses"
-                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-                >
-                  Gastos
-                </Link>
-                <Link
-                  to="/reports"
-                  className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-                >
-                  Reportes
-                </Link>
+                {/* Enlaces solo para OWNER o roles superiores */} 
+                {user && user.role === UserRole.OWNER && (
+                  <>
+                    <Link
+                      to="/expenses"
+                      className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                    >
+                      Gastos
+                    </Link>
+                    <Link
+                      to="/reports"
+                      className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                    >
+                      Reportes
+                    </Link>
+                    <Link
+                      to="/users"
+                      className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                    >
+                      Usuarios
+                    </Link>
+                    <Link
+                      to="/settings"
+                      className="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
+                    >
+                      Configuración
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
             <div className="flex items-center">

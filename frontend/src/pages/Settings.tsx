@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MainLayout } from '../components/layout/MainLayout';
+// import { MainLayout } from '../components/layout/MainLayout'; // Eliminado
 import { ProfileForm } from '../components/settings/ProfileForm';
 import { UserList } from '../components/settings/UserList';
 import { BusinessSettingsForm } from '../components/settings/BusinessSettingsForm';
@@ -8,7 +8,8 @@ export function Settings() {
   const [activeTab, setActiveTab] = useState<'profile' | 'business' | 'users'>('profile');
 
   return (
-    <MainLayout title="Configuración">
+    // <MainLayout title="Configuración"> // Eliminado
+    <>
       <div className="space-y-6 p-4 md:p-6">
         {/* Tabs */}
         <div className="border-b border-gray-200 dark:border-gray-700">
@@ -64,6 +65,7 @@ export function Settings() {
           )}
         </div>
       </div>
-    </MainLayout>
+    </>
+    // </MainLayout> // Eliminado
   );
 } 

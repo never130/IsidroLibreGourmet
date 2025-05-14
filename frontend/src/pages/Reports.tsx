@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { MainLayout } from '../components/layout/MainLayout';
+// import { MainLayout } from '../components/layout/MainLayout';
 import type { Order, OrderStatus, OrderType } from '../types/order';
 import type { Expense, ExpenseCategory } from '../types/expense';
 import type { ProductCategory } from '../types/product';
@@ -191,16 +191,14 @@ export function Reports() {
 
   if (isLoading) {
     return (
-      <MainLayout title="Reportes">
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-        </div>
-      </MainLayout>
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
     );
   }
 
   return (
-    <MainLayout title="Reportes">
+    <>
       <div className="space-y-6">
         {/* Filtros */}
         <div className="flex flex-wrap gap-4 items-center p-4 bg-gray-50 dark:bg-gray-800 rounded-md shadow">
@@ -280,15 +278,36 @@ export function Reports() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg shadow">
                       <h3 className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Ingresos Totales</h3>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">${(salesReportData.summary.totalRevenue || 0).toFixed(2)}</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                        ${
+                          ((rawValue) => {
+                            const numericValue = parseFloat(String(rawValue));
+                            return !isNaN(numericValue) ? numericValue.toFixed(2) : '0.00';
+                          })(salesReportData.summary.totalRevenue)
+                        }
+                      </p>
                     </div>
                     <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg shadow">
                       <h3 className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Total de Pedidos</h3>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{salesReportData.summary.totalOrders || 0}</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {
+                          ((rawValue) => {
+                            const numericValue = parseInt(String(rawValue), 10);
+                            return !isNaN(numericValue) ? numericValue : 0;
+                          })(salesReportData.summary.totalOrders)
+                        }
+                      </p>
                     </div>
                     <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg shadow">
                       <h3 className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Valor Promedio Pedido</h3>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">${(salesReportData.summary.averageOrderValue || 0).toFixed(2)}</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                        ${
+                          ((rawValue) => {
+                            const numericValue = parseFloat(String(rawValue));
+                            return !isNaN(numericValue) ? numericValue.toFixed(2) : '0.00';
+                          })(salesReportData.summary.averageOrderValue)
+                        }
+                      </p>
                     </div>
                   </div>
                 ) : <p className="text-gray-500 dark:text-gray-400">Cargando resumen...</p>}
@@ -305,7 +324,14 @@ export function Reports() {
                         {Object.entries(salesReportData.orderStats.countByType || {}).map(([type, data]: [string, any]) => (
                           <div key={type} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700 rounded">
                             <span className="text-sm text-gray-700 dark:text-gray-300">{type.replace('_', ' ').toUpperCase()}</span>
-                            <span className="font-medium text-sm text-gray-900 dark:text-white">${(data.totalValue || 0).toFixed(2)} ({data.count || 0} pedidos)</span>
+                            <span className="font-medium text-sm text-gray-900 dark:text-white">
+                              ${
+                                ((rawValue) => {
+                                  const numericValue = parseFloat(String(rawValue));
+                                  return !isNaN(numericValue) ? numericValue.toFixed(2) : '0.00';
+                                })(data.totalValue)
+                              } ({data.count || 0} pedidos)
+                            </span>
                           </div>
                         ))}
                       </div>
@@ -316,7 +342,14 @@ export function Reports() {
                         {Object.entries(salesReportData.orderStats.countByStatus || {}).map(([status, data]: [string, any]) => (
                           <div key={status} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-700 rounded">
                             <span className="text-sm text-gray-700 dark:text-gray-300">{status.replace('_', ' ').toUpperCase()}</span>
-                            <span className="font-medium text-sm text-gray-900 dark:text-white">${(data.totalValue || 0).toFixed(2)} ({data.count || 0} pedidos)</span>
+                            <span className="font-medium text-sm text-gray-900 dark:text-white">
+                              ${
+                                ((rawValue) => {
+                                  const numericValue = parseFloat(String(rawValue));
+                                  return !isNaN(numericValue) ? numericValue.toFixed(2) : '0.00';
+                                })(data.totalValue)
+                              } ({data.count || 0} pedidos)
+                            </span>
                           </div>
                         ))}
                       </div>
@@ -343,7 +376,14 @@ export function Reports() {
                           <tr key={pm.paymentMethod}>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">{pm.paymentMethod.replace('_',' ').toUpperCase()}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{pm.count}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${(pm.totalAmount || 0).toFixed(2)}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                              ${
+                                ((rawValue) => {
+                                  const numericValue = parseFloat(String(rawValue));
+                                  return !isNaN(numericValue) ? numericValue.toFixed(2) : '0.00';
+                                })(pm.totalAmount)
+                              }
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -368,7 +408,14 @@ export function Reports() {
                         {salesReportData.revenueOverTime.map((entry) => (
                           <tr key={entry.date}>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">{new Date(entry.date).toLocaleDateString()}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${(entry.revenue || 0).toFixed(2)}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                              ${
+                                ((rawValue) => {
+                                  const numericValue = parseFloat(String(rawValue));
+                                  return !isNaN(numericValue) ? numericValue.toFixed(2) : '0.00';
+                                })(entry.revenue)
+                              }
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -383,7 +430,14 @@ export function Reports() {
             <div className="space-y-6">
               <div className="bg-accent/50 p-4 rounded-lg">
                 <h3 className="text-sm font-medium mb-1">Gastos Totales</h3>
-                <p className="text-2xl font-bold">${expensesReport.totalExpenses.toFixed(2)}</p>
+                <p className="text-2xl font-bold">
+                  ${
+                    ((rawValue) => {
+                      const numericValue = parseFloat(String(rawValue));
+                      return !isNaN(numericValue) ? numericValue.toFixed(2) : '0.00';
+                    })(expensesReport.totalExpenses)
+                  }
+                </p>
               </div>
 
               <div>
@@ -392,7 +446,14 @@ export function Reports() {
                   {Object.entries(expensesReport.expensesByCategory).map(([category, amount]) => (
                     <div key={category} className="flex justify-between items-center">
                       <span>{category}</span>
-                      <span className="font-medium">${amount.toFixed(2)}</span>
+                      <span className="font-medium">
+                        ${
+                          ((rawValue) => {
+                            const numericValue = parseFloat(String(rawValue));
+                            return !isNaN(numericValue) ? numericValue.toFixed(2) : '0.00';
+                          })(amount)
+                        }
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -423,7 +484,12 @@ export function Reports() {
                         <div className="text-right">
                           <p className="font-medium">{product.totalQuantitySold} unidades</p>
                           <p className="text-sm text-muted-foreground">
-                            ${product.totalRevenueGenerated.toFixed(2)}
+                            ${
+                              ((rawValue) => {
+                                const numericValue = parseFloat(String(rawValue));
+                                return !isNaN(numericValue) ? numericValue.toFixed(2) : '0.00';
+                              })(product.totalRevenueGenerated)
+                            }
                           </p>
                         </div>
                       </div>
@@ -459,6 +525,6 @@ export function Reports() {
           )}
         </div>
       </div>
-    </MainLayout>
+    </>
   );
 } 

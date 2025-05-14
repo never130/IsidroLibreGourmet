@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import { MainLayout } from '../components/layout/MainLayout';
 import type { Expense } from '../types/expense';
 import { ExpenseForm } from '../components/expenses/ExpenseForm';
 
@@ -58,16 +57,14 @@ export function Expenses() {
 
   if (isLoading) {
     return (
-      <MainLayout title="Gestión de Gastos">
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-        </div>
-      </MainLayout>
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
     );
   }
 
   return (
-    <MainLayout title="Gestión de Gastos">
+    <>
       <div className="space-y-6">
         {/* Resumen */}
         <div className="bg-card p-6 rounded-lg shadow">
@@ -162,6 +159,6 @@ export function Expenses() {
           </div>
         </div>
       )}
-    </MainLayout>
+    </>
   );
 } 
