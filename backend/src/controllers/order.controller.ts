@@ -12,9 +12,10 @@ import { Product } from '../entities/Product';
 import { printerService } from '../services/printer.service';
 import { CreateOrderDto, UpdateOrderStatusDto } from '../dtos/order.dto'; // Importar DTOs
 import { User } from '../entities/User'; // Para asignar el usuario que crea la orden
-import { QueryFailedError } from 'typeorm'; // Para tipar errores específicos de TypeORM
+import { QueryFailedError, EntityManager } from 'typeorm'; // Para tipar errores específicos de TypeORM y EntityManager
 import { ingredientService } from '../services/ingredient.service'; // Importar IngredientService
 import { Recipe } from '../entities/Recipe'; // Importar Recipe para verificación
+import { HttpException, HttpStatus } from '../utils/HttpException'; // Asumiendo que existe
 
 export class OrderController {
   private orderRepository = AppDataSource.getRepository(Order);
@@ -70,6 +71,45 @@ export class OrderController {
   }
 
   /**
+   * Método privado para manejar la deducción de stock.
+   * Se asume que la orden ya tiene items y productos relacionados cargados.
+   */
+  private async _handleStockDeduction(order: Order, manager: EntityManager): Promise<void> {
+    for (const item of order.items) {
+      // Recargar el producto dentro de la transacción para asegurar datos frescos y bloqueo
+      const product = await manager.getRepository(Product).findOne({
+        where: { id: item.productId },
+        relations: ['recipe', 'recipe.items', 'recipe.items.ingredient'], // Asegurar que las relaciones necesarias están aquí
+      });
+
+      if (!product) {
+        // Esto no debería ocurrir si el producto se validó al crear el item del pedido,
+        // pero es una verificación de seguridad.
+        throw new HttpException(`Product with ID ${item.productId} not found during stock deduction.`, HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+
+      if (product.manageStock) {
+        if (product.stock < item.quantity) {
+          throw new HttpException(`Insufficient stock for product ${product.name}. Available: ${product.stock}, Requested: ${item.quantity}`, HttpStatus.CONFLICT);
+        }
+        product.stock -= item.quantity;
+        await manager.save(Product, product);
+      } else if (product.recipe && product.recipe.items && product.recipe.items.length > 0) {
+        for (const recipeItem of product.recipe.items) {
+          if (!recipeItem.ingredient) {
+            throw new HttpException(`Corrupted recipe data: Ingredient missing for recipe item ID ${recipeItem.id} in product ${product.name}.`, HttpStatus.INTERNAL_SERVER_ERROR);
+          }
+          const quantityToDecrement = Number(recipeItem.quantity) * item.quantity;
+          // ingredientService.adjustStock ya maneja la lógica de stock < 0 y lanza error
+          await ingredientService.adjustStock(recipeItem.ingredient.id, -quantityToDecrement, manager);
+        }
+      } else {
+        console.warn(`Product ${product.name} (ID: ${product.id}) does not manage stock and has no (or empty) recipe. No stock deducted.`);
+      }
+    }
+  }
+
+  /**
    * Crea un nuevo pedido y lo imprime
    * @param req - Request de Express con los datos del pedido (CreateOrderDto)
    * @param res - Response de Express
@@ -113,8 +153,8 @@ export class OrderController {
 
       for (const itemDto of createOrderDto.items) {
         const product = await queryRunner.manager.getRepository(Product).findOne({
-          where: { id: itemDto.productId },
-          relations: ['recipe', 'recipe.items', 'recipe.items.ingredient', 'recipe.items.unitOfMeasure'],
+          where: { id: itemDto.productId }
+          // No necesitamos relaciones de receta aquí ya que el stock no se descuenta en la creación
         });
 
         if (!product) {
@@ -133,84 +173,43 @@ export class OrderController {
         orderItem.price = parseFloat(product.price.toString());
         newOrder.items.push(orderItem);
         calculatedTotal += orderItem.price * orderItem.quantity;
-
-        // Lógica de descuento de Stock
-        if (product.manageStock) {
-          // El producto gestiona su propio stock, descontar de product.stock
-          if (product.stock < itemDto.quantity) {
-            await queryRunner.rollbackTransaction();
-            return res.status(400).json({ message: `Insufficient stock for product ${product.name}. Available: ${product.stock}, Requested: ${itemDto.quantity}` });
-          }
-          product.stock -= itemDto.quantity;
-          await queryRunner.manager.save(Product, product);
-        } else if (product.recipe && product.recipe.items && product.recipe.items.length > 0) {
-          // El producto NO gestiona su propio stock Y TIENE receta, descontar ingredientes
-          for (const recipeItem of product.recipe.items) {
-            if (!recipeItem.ingredient) {
-                await queryRunner.rollbackTransaction();
-                return res.status(500).json({ message: `Corrupted recipe data: Ingredient missing for recipe item ID ${recipeItem.id} in product ${product.name}.` });
-            }
-            const quantityToDecrement = Number(recipeItem.quantity) * itemDto.quantity;
-            try {
-                await ingredientService.adjustStock(recipeItem.ingredient.id, -quantityToDecrement, queryRunner.manager);
-            } catch (error: any) {
-                await queryRunner.rollbackTransaction();
-                return res.status(error.status || 500).json({ 
-                    message: error.message || 'Error adjusting ingredient stock.',
-                    details: `Failed to adjust stock for ingredient: ${recipeItem.ingredient.name}`
-                });
-            }
-          }
-        } else {
-          // El producto no gestiona stock propio y no tiene receta, o la receta está vacía.
-          // Considerar si esto es un error o si simplemente no se descuenta nada.
-          // Por ahora, no se descuenta nada. Podría loguearse una advertencia.
-          console.warn(`Product ${product.name} (ID: ${product.id}) does not manage stock and has no (or empty) recipe. No stock deducted.`);
-        }
       }
 
       newOrder.total = calculatedTotal;
-      // Guardar primero los OrderItems si no se hace por cascada desde Order, o asegurar que la cascada los crea.
-      // Si Order tiene cascade: true para items, esto es suficiente.
-      // await queryRunner.manager.save(OrderItem, newOrder.items); // Esto puede ser necesario si la cascada no es completa
       const savedOrder = await queryRunner.manager.save(Order, newOrder);
-
 
       await queryRunner.commitTransaction();
 
       // Recuperar la orden completa para la respuesta y la impresión
       const fullOrder = await AppDataSource.getRepository(Order).findOne({
         where: { id: savedOrder.id },
-        relations: ['items', 'items.product', 'createdBy', 'items.product.recipe', 'items.product.recipe.items', 'items.product.recipe.items.ingredient'],
+        relations: ['items', 'items.product', 'createdBy'], 
       });
 
       if (fullOrder) {
         await printerService.printOrder(fullOrder);
         res.status(201).json(fullOrder);
       } else {
-        // Esto no debería ocurrir si la transacción fue exitosa y el ID es correcto.
-        // Considerar loggear un error crítico aquí.
+        // Esto es improbable si la transacción fue exitosa.
         res.status(500).json({ message: 'Order created but could not be retrieved for printing/response.'});
       }
 
-    } catch (error: any) { // Asegurar que el tipo de error es any o Error
-      if (queryRunner.isTransactionActive) { // Solo hacer rollback si la transacción está activa
+    } catch (error: any) {
+      if (queryRunner.isTransactionActive) {
         await queryRunner.rollbackTransaction();
       }
       console.error('Error creating order:', error);
       let errorMessage = 'Error creating order';
-      // La HttpException de ingredientService ya debería tener un status
-      if (error.status && error.message) {
-          return res.status(error.status).json({ message: error.message, details: error.errors });
+      if (error instanceof HttpException) {
+        return res.status(error.status || 500).json({ message: error.message, details: error.errors });
       }
-      
       if (error instanceof QueryFailedError && (error as any).message.includes('UQ_ORDER_CUSTOMER_NAME_TYPE')) {
           return res.status(409).json({ message: 'Order with similar details already exists.', details: (error as any).message });
       }
       if (error instanceof Error) {
           errorMessage = error.message;
       }
-      res.status(500).json({ message: errorMessage, details: error.constructor.name });
+      res.status(500).json({ message: errorMessage, details: error.constructor?.name });
     } finally {
       await queryRunner.release();
     }
@@ -223,24 +222,76 @@ export class OrderController {
    * @returns Pedido actualizado
    */
   async updateStatus(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
-      const updateOrderStatusDto = req.body as UpdateOrderStatusDto;
+    const { id } = req.params;
+    const updateOrderStatusDto = req.body as UpdateOrderStatusDto;
 
-      const order = await this.orderRepository.findOne({
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const order = await queryRunner.manager.getRepository(Order).findOne({
         where: { id: parseInt(id) },
-        relations: ['items', 'items.product', 'createdBy']
+        relations: ['items'] 
       });
 
       if (!order) {
+        await queryRunner.rollbackTransaction();
         return res.status(404).json({ message: 'Order not found' });
       }
+
+      const previousStatus = order.status;
       order.status = updateOrderStatusDto.status;
-      const updatedOrder = await this.orderRepository.save(order);
-      res.json(updatedOrder);
+      
+      // Guardar el cambio de estado primero
+      const savedOrder = await queryRunner.manager.save(Order, order);
+
+      // Lógica de descuento de Stock si el pedido se marca como COMPLETADO y no lo estaba antes
+      if (previousStatus !== OrderStatus.COMPLETED && savedOrder.status === OrderStatus.COMPLETED) {
+        // Volver a cargar la orden con todas las relaciones necesarias DENTRO de la transacción
+        const orderForStockDeduction = await queryRunner.manager.getRepository(Order).findOne({
+            where: { id: savedOrder.id },
+            relations: [
+                'items', 
+                'items.product', 
+                'items.product.recipe', 
+                'items.product.recipe.items', 
+                'items.product.recipe.items.ingredient'
+            ]
+        });
+
+        if (!orderForStockDeduction) {
+            // Esto sería muy inusual si savedOrder existe.
+            throw new HttpException('Order disappeared during status update for stock deduction.', HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        await this._handleStockDeduction(orderForStockDeduction, queryRunner.manager);
+      }
+
+      await queryRunner.commitTransaction();
+      
+      // Devolver la orden con el estado actualizado y potencialmente items/productos
+      const finalOrder = await AppDataSource.getRepository(Order).findOne({
+        where: { id: savedOrder.id },
+        relations: ['items', 'items.product', 'createdBy'] 
+      });
+
+      res.json(finalOrder);
+
     } catch (error: any) {
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
+      }
       console.error('Error updating order status:', error);
-      res.status(500).json({ message: 'Error updating order status' });
+      let errorMessage = 'Error updating order status';
+       if (error instanceof HttpException) {
+        return res.status(error.status || 500).json({ message: error.message, details: error.errors });
+      }
+      if (error instanceof Error) {
+          errorMessage = error.message;
+      }
+      res.status(500).json({ message: errorMessage, details: error.constructor?.name });
+    } finally {
+      await queryRunner.release();
     }
   }
 
@@ -251,91 +302,71 @@ export class OrderController {
    * @returns Pedido cancelado
    */
   async cancel(req: Request, res: Response) {
+    const { id } = req.params;
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      const { id } = req.params;
-      const orderId = parseInt(id);
-
-      const order = await queryRunner.manager.getRepository(Order).findOne({
-        where: { id: orderId },
-        // Cargar relaciones necesarias para reponer stock de ingredientes
-        relations: ['items', 'items.product', 'items.product.recipe', 'items.product.recipe.items', 'items.product.recipe.items.ingredient']
+      const order = await queryRunner.manager.findOne(Order, { 
+        where: { id: parseInt(id) },
+        relations: ['items', 'items.product', 'items.product.recipe', 'items.product.recipe.items', 'items.product.recipe.items.ingredient'] 
       });
 
       if (!order) {
         await queryRunner.rollbackTransaction();
         return res.status(404).json({ message: 'Order not found' });
       }
+
       if (order.status === OrderStatus.CANCELLED) {
         await queryRunner.rollbackTransaction();
-        return res.status(400).json({ message: 'Order is already cancelled.' });
+        return res.status(400).json({ message: 'Order is already cancelled' });
       }
-      if (order.status === OrderStatus.COMPLETED) {
-        await queryRunner.rollbackTransaction();
-        return res.status(400).json({ message: 'Cannot cancel a completed order.' });
-      }
+      
+      const wasCompleted = order.status === OrderStatus.COMPLETED;
+      order.status = OrderStatus.CANCELLED;
+      const updatedOrder = await queryRunner.manager.save(order);
 
-      for (const item of order.items) {
-        if (item.product) {
-          const product = item.product; // Ya está cargado con sus relaciones
-          
-          // Lógica de Reposición de Stock
-          if (product.manageStock) {
-            // El producto gestiona su propio stock, reponer en product.stock
-            const productRepo = queryRunner.manager.getRepository(Product);
-            const dbProduct = await productRepo.findOneBy({id: product.id});
-            if(dbProduct){
-                dbProduct.stock += item.quantity;
-                await productRepo.save(dbProduct);
-            } else {
-                 console.warn(`Product with ID ${product.id} not found during stock refund for product itself.`);
-            }
-          } else if (product.recipe && product.recipe.items && product.recipe.items.length > 0) {
-            // El producto NO gestiona su propio stock Y TIENE receta, reponer ingredientes
-            for (const recipeItem of product.recipe.items) {
-              if (recipeItem.ingredient) {
-                const quantityToIncrement = Number(recipeItem.quantity) * item.quantity;
-                try {
-                  await ingredientService.adjustStock(recipeItem.ingredient.id, quantityToIncrement, queryRunner.manager);
-                } catch (error: any) {
-                  // Si falla la reposición de un ingrediente, hacer rollback y notificar.
-                  console.error(`Critical: Failed to restock ingredient ${recipeItem.ingredient.name} (ID: ${recipeItem.ingredient.id}) during order cancellation. Rolling back. Error: ${error.message}`);
-                  await queryRunner.rollbackTransaction();
-                  // Usar el status del error si es HttpException, sino 500
-                  const status = error.status || 500;
-                  const message = error.message || 'Error restocking ingredient during order cancellation.';
-                  return res.status(status).json({ 
-                      message: `Order cancellation aborted: ${message}`,
-                      details: `Failed to restock ingredient: ${recipeItem.ingredient.name}` 
-                  });
-                }
-              } else {
-                console.warn(`Ingredient data missing for recipe item ID ${recipeItem.id} in product ${product.name} during cancellation stock refund.`);
-              }
-            }
-          } else {
-            // El producto no gestiona stock propio y no tiene receta, o la receta está vacía.
-            // No hay stock de ingredientes que reponer que fuera descontado por receta.
-             console.warn(`Product ${product.name} (ID: ${product.id}) does not manage stock and has no (or empty) recipe. No ingredient stock to refund.`);
+      // Si el pedido estaba COMPLETADO, revertir el stock
+      if (wasCompleted) {
+        for (const item of order.items) {
+          const product = item.product; // Ya cargado con las relaciones
+          if (!product) {
+            // Esta verificación ya debería estar cubierta por las relaciones cargadas.
+            // Considerar si es necesario lanzar un error más específico si product no está aquí.
+            throw new HttpException(`Product details missing for item ID ${item.id} during stock reversion.`, HttpStatus.INTERNAL_SERVER_ERROR);
           }
-        } else {
-           console.warn(`Product data missing for order item ${item.id} during cancellation stock refund.`);
+
+          if (product.manageStock) {
+            product.stock += item.quantity;
+            await queryRunner.manager.save(Product, product);
+          } else if (product.recipe && product.recipe.items && product.recipe.items.length > 0) {
+            for (const recipeItem of product.recipe.items) {
+              if (!recipeItem.ingredient) {
+                 throw new HttpException(`Corrupted recipe data: Ingredient missing for recipe item ID ${recipeItem.id} in product ${product.name} during stock reversion.`, HttpStatus.INTERNAL_SERVER_ERROR);
+              }
+              const quantityToIncrement = Number(recipeItem.quantity) * item.quantity;
+              await ingredientService.adjustStock(recipeItem.ingredient.id, quantityToIncrement, queryRunner.manager); // Sumar de nuevo al stock
+            }
+          }
         }
       }
 
-      order.status = OrderStatus.CANCELLED;
-      const cancelledOrder = await queryRunner.manager.save(Order, order);
       await queryRunner.commitTransaction();
-      res.json(cancelledOrder);
-    } catch (error: any) { // Asegurar tipo de error
+      res.json(updatedOrder);
+    } catch (error: any) {
       if (queryRunner.isTransactionActive) {
         await queryRunner.rollbackTransaction();
       }
       console.error('Error cancelling order:', error);
-      res.status(500).json({ message: 'Error cancelling order', details: error.message });
+      let errorMessage = 'Error cancelling order';
+      if (error instanceof HttpException) {
+        return res.status(error.status || 500).json({ message: error.message, details: error.errors });
+      }
+      if (error instanceof Error) {
+          errorMessage = error.message;
+      }
+      res.status(500).json({ message: errorMessage, details: error.constructor?.name });
     } finally {
       await queryRunner.release();
     }
@@ -375,15 +406,16 @@ export class OrderController {
    */
   async getActiveOrders(req: Request, res: Response) {
     try {
-      const orders = await this.orderRepository.find({
+      const activeOrders = await this.orderRepository.find({
         where: [
           { status: OrderStatus.PENDING },
-          { status: OrderStatus.IN_PROGRESS }
+          { status: OrderStatus.IN_PROGRESS },
+          // Podríamos incluir otros estados si se consideran "activos" para la vista de cocina/POS
         ],
         relations: ['items', 'items.product', 'createdBy'],
-        order: { createdAt: 'ASC' }
+        order: { createdAt: 'ASC' } 
       });
-      res.json(orders);
+      res.json(activeOrders);
     } catch (error: any) {
       console.error('Error getting active orders:', error);
       res.status(500).json({ message: 'Error getting active orders' });
