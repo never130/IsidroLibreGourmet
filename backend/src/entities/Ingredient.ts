@@ -4,13 +4,11 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  ManyToOne,
-  JoinColumn,
   Index,
   OneToMany,
 } from 'typeorm';
-import { UnitOfMeasure } from './UnitOfMeasure';
 import { RecipeItem } from './RecipeItem';
+import { IngredientUnit } from '../enums/ingredient-unit.enum';
 
 @Entity('ingredients') // Nombre de la tabla
 export class Ingredient {
@@ -22,30 +20,26 @@ export class Ingredient {
   name: string; // Ej: "Harina de Trigo", "Tomate Entero", "Queso Mozzarella"
 
   @Column({ type: 'text', nullable: true })
-  description?: string;
+  description: string | null;
 
-  @Column({ type: 'decimal', precision: 10, scale: 3, default: 0 }) // Permite decimales para stock (ej. 0.5 kg)
-  stock: number; // Cantidad actual en inventario, ej: 5000 para 5000 gramos
+  @Column({
+    type: 'enum',
+    enum: IngredientUnit,
+    default: IngredientUnit.GRAMS,
+  })
+  unitOfMeasure: IngredientUnit;
+
+  @Column({ type: 'decimal', precision: 10, scale: 3, default: 0 }) // Permite decimales para stock, ej. 0.5g
+  stockQuantity: number;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
-  costPrice?: number | null; // NUEVA PROPIEDAD
-
-  // Relación con UnitOfMeasure
-  @ManyToOne(() => UnitOfMeasure, { eager: true, nullable: false }) // eager: true para cargar siempre la unidad, nullable: false para que sea obligatoria
-  @JoinColumn({ name: 'unitOfMeasureId' })
-  unitOfMeasure: UnitOfMeasure;
-
-  @Column()
-  unitOfMeasureId: number; // Foreign key
+  costPrice: number | null;
 
   @Column({ type: 'decimal', precision: 10, scale: 3, nullable: true })
-  lowStockThreshold?: number; // Opcional, umbral para alertas de stock bajo
-
-  @Column({ type: 'decimal', precision: 10, scale: 4, nullable: true }) // Mayor precisión para costo unitario
-  cost?: number; // Opcional, costo promedio por unidad de medida base (la definida en unitOfMeasure)
+  lowStockThreshold: number | null;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  supplier?: string; // Opcional, información del proveedor
+  supplier: string | null;
 
   @CreateDateColumn()
   createdAt: Date;

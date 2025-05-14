@@ -1,186 +1,145 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { ingredientService } from "@/services/ingredientService";
-import { unitOfMeasureService } from "@/services/unitOfMeasureService";
-import { Ingredient, CreateIngredientDto, UpdateIngredientDto } from "@/types/ingredient";
-import { UnitOfMeasure } from "@/types/unitOfMeasure";
-import IngredientList from "@/components/Inventory/Ingredients/IngredientList";
-import IngredientForm from "@/components/Inventory/Ingredients/IngredientForm";
-import DeleteIngredientDialog from "@/components/Inventory/Ingredients/DeleteIngredientDialog";
-import AdjustStockDialog from "@/components/Inventory/Ingredients/AdjustStockDialog";
-import { Button } from "@/components/ui/button";
-import { PlusCircle } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { ingredientService } from '../../services/ingredientService';
+import type { Ingredient } from '../../types/ingredient';
+import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
+} from '@/components/ui/table';
+import { PlusCircle, Edit, Trash2, AlertTriangle, Loader2, PackageSearch } from 'lucide-react';
+import { MainLayout } from '@/components/layout/MainLayout';
+import { IngredientFormModal } from '../../components/inventory/Ingredients/IngredientFormModal';
 
-const IngredientsPage = () => {
+export function IngredientsPage() {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
-
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isAdjustStockOpen, setIsAdjustStockOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
 
-  const { data: ingredients, isLoading: isLoadingIngredients, error: ingredientsError } = useQuery<Ingredient[], Error>({
-    queryKey: ["ingredients"],
+  const { data: ingredients, isLoading, error, refetch } = useQuery<Ingredient[], Error>({
+    queryKey: ['ingredients'],
     queryFn: ingredientService.getAll,
   });
 
-  const { data: unitsOfMeasure, isLoading: isLoadingUnits, error: unitsError } = useQuery<UnitOfMeasure[], Error>({
-    queryKey: ["unitsOfMeasure"],
-    queryFn: unitOfMeasureService.getAll,
-  });
-
-  const createMutation = useMutation({
-    mutationFn: (data: CreateIngredientDto) => ingredientService.create(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["ingredients"] });
-      setIsFormOpen(false);
-      toast({ title: "Éxito", description: "Ingrediente creado con éxito." });
-    },
-    onError: (error: Error) => {
-      toast({ variant: "destructive", title: "Error", description: `Error al crear ingrediente: ${error.message}` });
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: UpdateIngredientDto }) => ingredientService.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["ingredients"] });
-      setIsFormOpen(false);
-      setSelectedIngredient(null);
-      toast({ title: "Éxito", description: "Ingrediente actualizado con éxito." });
-    },
-    onError: (error: Error) => {
-      toast({ variant: "destructive", title: "Error", description: `Error al actualizar ingrediente: ${error.message}` });
-    },
-  });
-
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => ingredientService.delete(id),
+    mutationFn: ingredientService.delete,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["ingredients"] });
-      setIsDeleteDialogOpen(false);
-      setSelectedIngredient(null);
-      toast({ title: "Éxito", description: "Ingrediente eliminado con éxito." });
+      queryClient.invalidateQueries({ queryKey: ['ingredients'] });
+      // Aquí podrías añadir una notificación de éxito (toast)
     },
-    onError: (error: Error) => {
-      toast({ variant: "destructive", title: "Error", description: `Error al eliminar ingrediente: ${error.message}` });
+    onError: (err: Error) => {
+      // Aquí podrías añadir una notificación de error (toast)
+      console.error("Error deleting ingredient:", err);
+      alert(`Error al eliminar el ingrediente: ${err.message}`);
     },
   });
 
-  const adjustStockMutation = useMutation({
-    mutationFn: ({ id, quantity, isAddition }: { id: number; quantity: number; isAddition: boolean }) =>
-      ingredientService.adjustStock(id, quantity, isAddition),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["ingredients"] });
-      setIsAdjustStockOpen(false);
-      setSelectedIngredient(null);
-      toast({ title: "Éxito", description: "Stock ajustado con éxito." });
-    },
-    onError: (error: Error) => {
-      toast({ variant: "destructive", title: "Error", description: `Error al ajustar stock: ${error.message}` });
-    },
-  });
-
-  const handleOpenForm = (ingredient: Ingredient | null = null) => {
-    setSelectedIngredient(ingredient);
-    setIsFormOpen(true);
-  };
-
-  const handleOpenDeleteDialog = (ingredient: Ingredient) => {
-    setSelectedIngredient(ingredient);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const handleOpenAdjustStockDialog = (ingredient: Ingredient) => {
-    setSelectedIngredient(ingredient);
-    setIsAdjustStockOpen(true);
-  };
-
-  const handleSubmitForm = (data: CreateIngredientDto | UpdateIngredientDto) => {
-    if (selectedIngredient) {
-      updateMutation.mutate({ id: selectedIngredient.id, data });
-    } else {
-      createMutation.mutate(data as CreateIngredientDto);
+  const handleDelete = (id: number) => {
+    if (window.confirm('¿Estás seguro de que deseas eliminar este ingrediente?')) {
+      deleteMutation.mutate(id);
     }
   };
 
-  const handleDeleteConfirm = () => {
-    if (selectedIngredient) {
-      deleteMutation.mutate(selectedIngredient.id);
-    }
+  const openFormModal = (ingredient: Ingredient | null = null) => {
+    setSelectedIngredient(ingredient);
+    setIsFormModalOpen(true);
   };
 
-  const handleAdjustStockConfirm = (quantity: number, isAddition: boolean) => {
-    if (selectedIngredient) {
-      adjustStockMutation.mutate({ id: selectedIngredient.id, quantity, isAddition });
-    }
+  const closeFormModal = () => {
+    setSelectedIngredient(null);
+    setIsFormModalOpen(false);
+    refetch(); // Vuelve a cargar los datos por si hubo cambios
   };
 
-  if (ingredientsError) return <p>Error cargando ingredientes: {ingredientsError.message}</p>;
-  if (unitsError) return <p>Error cargando unidades de medida: {unitsError.message}</p>;
+  if (isLoading) {
+    return (
+      <MainLayout title="Cargando Ingredientes...">
+        <div className="flex justify-center items-center h-64">
+          <Loader2 className="h-16 w-16 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <MainLayout title="Error">
+        <div className="container mx-auto p-4 text-center">
+          <AlertTriangle className="h-12 w-12 mx-auto text-red-500 mb-4" />
+          <h2 className="text-xl font-semibold text-red-500">Error al cargar los ingredientes</h2>
+          <p className="text-muted-foreground">{error.message}</p>
+          <Button onClick={() => refetch()} className="mt-4">Reintentar</Button>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Gestión de Ingredientes</h1>
-        <Button onClick={() => handleOpenForm()} className="flex items-center">
-          <PlusCircle className="mr-2 h-5 w-5" /> Crear Ingrediente
-        </Button>
+    <MainLayout title="Gestión de Ingredientes">
+      <div className="container mx-auto p-4">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-2xl font-semibold">Gestión de Ingredientes</h1>
+          <Button onClick={() => openFormModal()} >
+            <PlusCircle className="mr-2 h-4 w-4" /> Agregar Ingrediente
+          </Button>
+        </div>
+
+        {ingredients && ingredients.length > 0 ? (
+          <Table className="bg-card shadow rounded-lg">
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>Nombre</TableHead>
+                <TableHead>Stock</TableHead>
+                <TableHead>Unidad</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {ingredients.map((ingredient) => (
+                <TableRow key={ingredient.id}>
+                  <TableCell>{ingredient.id}</TableCell>
+                  <TableCell className="font-medium">{ingredient.name}</TableCell>
+                  <TableCell>{ingredient.stockQuantity}</TableCell>
+                  <TableCell>{ingredient.unitOfMeasure}</TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="icon" onClick={() => openFormModal(ingredient)} className="mr-2">
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(ingredient.id)} disabled={deleteMutation.isPending}>
+                      {deleteMutation.isPending && deleteMutation.variables === ingredient.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      )}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        ) : (
+          <div className="text-center py-10 bg-card shadow rounded-lg">
+            <PackageSearch className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">No hay ingredientes registrados.</p>
+            <p className="text-sm text-muted-foreground mb-4">Comienza agregando uno nuevo.</p>
+             <Button onClick={() => openFormModal()} >
+                <PlusCircle className="mr-2 h-4 w-4" /> Agregar Ingrediente
+            </Button>
+          </div>
+        )}
       </div>
-
-      {isLoadingIngredients || isLoadingUnits ? (
-        <p>Cargando datos...</p>
-      ) : (
-        <IngredientList
-          ingredients={ingredients || []}
-          unitsOfMeasure={unitsOfMeasure || []}
-          onEdit={handleOpenForm}
-          onDelete={handleOpenDeleteDialog}
-          onAdjustStock={handleOpenAdjustStockDialog}
+      {isFormModalOpen && (
+        <IngredientFormModal
+          isOpen={isFormModalOpen}
+          onClose={closeFormModal}
+          ingredientToEdit={selectedIngredient}
         />
       )}
-
-      {isFormOpen && unitsOfMeasure && (
-        <IngredientForm
-          isOpen={isFormOpen}
-          onClose={() => {
-            setIsFormOpen(false);
-            setSelectedIngredient(null);
-          }}
-          onSubmit={handleSubmitForm}
-          initialData={selectedIngredient}
-          unitsOfMeasure={unitsOfMeasure}
-          isSaving={createMutation.isPending || updateMutation.isPending}
-        />
-      )}
-
-      {isDeleteDialogOpen && selectedIngredient && (
-        <DeleteIngredientDialog
-          isOpen={isDeleteDialogOpen}
-          onClose={() => setIsDeleteDialogOpen(false)}
-          onConfirm={handleDeleteConfirm}
-          ingredientName={selectedIngredient.name}
-          isDeleting={deleteMutation.isPending}
-        />
-      )}
-
-      {isAdjustStockOpen && selectedIngredient && unitsOfMeasure && (
-        <AdjustStockDialog
-          isOpen={isAdjustStockOpen}
-          onClose={() => {
-            setIsAdjustStockOpen(false);
-            setSelectedIngredient(null);
-          }}
-          onConfirm={handleAdjustStockConfirm}
-          ingredient={selectedIngredient}
-          unitOfMeasure={unitsOfMeasure.find(uom => uom.id === selectedIngredient.unitOfMeasureId)}
-          isAdjusting={adjustStockMutation.isPending}
-        />
-      )}
-    </div>
+    </MainLayout>
   );
-};
-
-export default IngredientsPage; 
+} 

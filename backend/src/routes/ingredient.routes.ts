@@ -1,38 +1,18 @@
 import { Router } from 'express';
-import { ingredientController } from '../controllers/ingredient.controller';
-import { authMiddleware } from '../middleware/auth.middleware';
-import { roleMiddleware } from '../middleware/role.middleware';
-import { UserRole } from '../entities/User';
+import { IngredientController } from '../controllers/ingredient.controller';
+// import { authMiddleware } from '../middleware/auth.middleware'; // Descomentar si se necesita autenticación
+// import { roleMiddleware } from '../middleware/role.middleware'; // Descomentar para proteger rutas por rol
 
 const router = Router();
+const ingredientController = new IngredientController();
 
-// Roles que pueden escribir (crear, actualizar, eliminar, ajustar stock)
-const writeRoles = [UserRole.OWNER, UserRole.ADMIN];
-// Roles que pueden leer información sensible de stock (como low-stock)
-const sensitiveReadRoles = [UserRole.OWNER, UserRole.ADMIN];
+// Por ahora, rutas públicas. Proteger según sea necesario más adelante.
+// Ejemplo de ruta protegida: router.post('/', authMiddleware, roleMiddleware(['ADMIN']), ingredientController.create);
 
-// Crear un nuevo ingrediente
-router.post('/', authMiddleware, roleMiddleware(writeRoles), ingredientController.create);
-
-// Obtener todos los ingredientes (cualquier usuario autenticado)
-router.get('/', authMiddleware, ingredientController.findAll);
-
-// Obtener ingredientes con bajo stock (solo roles con permisos)
-router.get('/low-stock', authMiddleware, roleMiddleware(sensitiveReadRoles), ingredientController.findLowStock);
-
-// Obtener un ingrediente por ID (cualquier usuario autenticado)
-router.get('/:id', authMiddleware, ingredientController.findOne);
-
-// Actualizar un ingrediente por ID
-router.put('/:id', authMiddleware, roleMiddleware(writeRoles), ingredientController.update);
-
-// Eliminar un ingrediente por ID
-router.delete('/:id', authMiddleware, roleMiddleware(writeRoles), ingredientController.remove);
-
-// Actualizar el stock de un ingrediente (establecer un nuevo valor)
-router.patch('/:id/stock', authMiddleware, roleMiddleware(writeRoles), ingredientController.updateStock);
-
-// Ajustar el stock de un ingrediente (sumar o restar cantidad)
-router.patch('/:id/adjust-stock', authMiddleware, roleMiddleware(writeRoles), ingredientController.adjustStock);
+router.post('/', ingredientController.create.bind(ingredientController));
+router.get('/', ingredientController.findAll.bind(ingredientController));
+router.get('/:id', ingredientController.findOne.bind(ingredientController));
+router.put('/:id', ingredientController.update.bind(ingredientController));
+router.delete('/:id', ingredientController.remove.bind(ingredientController));
 
 export default router; 

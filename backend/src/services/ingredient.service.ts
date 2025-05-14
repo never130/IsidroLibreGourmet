@@ -1,9 +1,10 @@
 import { AppDataSource } from '../data-source';
 import { Ingredient } from '../entities/Ingredient';
-import { UnitOfMeasure } from '../entities/UnitOfMeasure';
+// import { UnitOfMeasure } from '../entities/UnitOfMeasure'; // Ya no es necesario
 import { CreateIngredientDto, UpdateIngredientDto } from '../dtos/ingredient.dto';
 import { FindManyOptions, FindOneOptions, LessThanOrEqual, Repository, EntityManager } from 'typeorm';
 import { HttpException, HttpStatus } from '../utils/HttpException';
+import { IngredientUnit } from '../enums/ingredient-unit.enum'; // Asegurarse que está importado
 
 // Necesitaremos una clase HttpException. Si no la tienes, deberás crearla.
 // Ejemplo básico:
@@ -22,17 +23,16 @@ import { HttpException, HttpStatus } from '../utils/HttpException';
 
 export class IngredientService {
   private ingredientRepository: Repository<Ingredient>;
-  private unitOfMeasureRepository: Repository<UnitOfMeasure>;
+  // private unitOfMeasureRepository: Repository<UnitOfMeasure>; // Ya no es necesario
 
   constructor() {
     this.ingredientRepository = AppDataSource.getRepository(Ingredient);
-    this.unitOfMeasureRepository = AppDataSource.getRepository(UnitOfMeasure);
+    // this.unitOfMeasureRepository = AppDataSource.getRepository(UnitOfMeasure); // Ya no es necesario
   }
 
   async create(createDto: CreateIngredientDto): Promise<Ingredient> {
-    const unitOfMeasure = await this.unitOfMeasureRepository.findOneBy({ id: createDto.unitOfMeasureId });
-    if (!unitOfMeasure) {
-      throw new HttpException(`UnitOfMeasure with ID ${createDto.unitOfMeasureId} not found`, HttpStatus.NOT_FOUND);
+    if (!Object.values(IngredientUnit).includes(createDto.unitOfMeasure)) {
+      throw new HttpException(`Invalid unitOfMeasure: ${createDto.unitOfMeasure}`, HttpStatus.BAD_REQUEST);
     }
 
     const existingIngredient = await this.ingredientRepository.findOneBy({ name: createDto.name });
@@ -42,13 +42,12 @@ export class IngredientService {
 
     const ingredient = new Ingredient();
     ingredient.name = createDto.name;
-    ingredient.description = createDto.description || undefined;
-    ingredient.stock = createDto.stock;
-    ingredient.unitOfMeasureId = createDto.unitOfMeasureId;
-    ingredient.lowStockThreshold = createDto.lowStockThreshold;
-    ingredient.costPrice = createDto.costPrice;
-    ingredient.supplier = createDto.supplier;
-    ingredient.unitOfMeasure = unitOfMeasure;
+    ingredient.description = createDto.description || null;
+    ingredient.unitOfMeasure = createDto.unitOfMeasure;
+    ingredient.stockQuantity = createDto.stockQuantity;
+    ingredient.lowStockThreshold = createDto.lowStockThreshold === undefined ? null : createDto.lowStockThreshold;
+    ingredient.costPrice = createDto.costPrice === undefined ? null : createDto.costPrice;
+    ingredient.supplier = createDto.supplier || null;
 
     return this.ingredientRepository.save(ingredient);
   }
@@ -67,30 +66,35 @@ export class IngredientService {
       return null;
     }
 
-    let unitOfMeasure = ingredient.unitOfMeasure;
-    if (updateDto.unitOfMeasureId && updateDto.unitOfMeasureId !== ingredient.unitOfMeasureId) {
-      const newUnitOfMeasure = await this.unitOfMeasureRepository.findOneBy({ id: updateDto.unitOfMeasureId });
-      if (!newUnitOfMeasure) {
-        throw new HttpException(`New UnitOfMeasure with ID ${updateDto.unitOfMeasureId} not found`, HttpStatus.NOT_FOUND);
-      }
-      unitOfMeasure = newUnitOfMeasure;
-    }
-    
     if (updateDto.name && updateDto.name !== ingredient.name) {
       const existingIngredient = await this.ingredientRepository.findOneBy({ name: updateDto.name });
       if (existingIngredient && existingIngredient.id !== id) {
         throw new HttpException(`Another ingredient with name "${updateDto.name}" already exists`, HttpStatus.CONFLICT);
       }
+      ingredient.name = updateDto.name;
     }
     
-    const { unitOfMeasureId, ...restOfUpdateDto } = updateDto;
-
-    if (restOfUpdateDto.name) ingredient.name = restOfUpdateDto.name;
-    if (restOfUpdateDto.description !== undefined) ingredient.description = restOfUpdateDto.description || undefined;
-    if (restOfUpdateDto.lowStockThreshold !== undefined) ingredient.lowStockThreshold = restOfUpdateDto.lowStockThreshold;
-    if (restOfUpdateDto.costPrice !== undefined) ingredient.costPrice = restOfUpdateDto.costPrice;
-    if (restOfUpdateDto.supplier !== undefined) ingredient.supplier = restOfUpdateDto.supplier;
-    ingredient.unitOfMeasure = unitOfMeasure;
+    if (updateDto.description !== undefined) {
+      ingredient.description = updateDto.description || null;
+    }
+    if (updateDto.unitOfMeasure !== undefined) {
+      if (!Object.values(IngredientUnit).includes(updateDto.unitOfMeasure)) {
+        throw new HttpException(`Invalid unitOfMeasure: ${updateDto.unitOfMeasure}`, HttpStatus.BAD_REQUEST);
+      }
+      ingredient.unitOfMeasure = updateDto.unitOfMeasure;
+    }
+    if (updateDto.stockQuantity !== undefined) {
+      ingredient.stockQuantity = updateDto.stockQuantity;
+    }
+    if (updateDto.lowStockThreshold !== undefined) {
+      ingredient.lowStockThreshold = updateDto.lowStockThreshold === null ? null : Number(updateDto.lowStockThreshold);
+    }
+    if (updateDto.costPrice !== undefined) {
+      ingredient.costPrice = updateDto.costPrice === null ? null : Number(updateDto.costPrice);
+    }
+    if (updateDto.supplier !== undefined) {
+      ingredient.supplier = updateDto.supplier || null;
+    }
 
     return this.ingredientRepository.save(ingredient);
   }
@@ -105,17 +109,19 @@ export class IngredientService {
     }
   }
 
-  async updateStock(id: number, newStock: number): Promise<Ingredient | null> {
-    const ingredient = await this.ingredientRepository.findOneBy({ id });
+  async updateStock(id: number, newStockQuantity: number, manager?: EntityManager): Promise<Ingredient | null> {
+    const repository = manager ? manager.getRepository(Ingredient) : this.ingredientRepository;
+    const ingredient = await repository.findOneBy({ id });
     if (!ingredient) {
       // Devuelve null para que el controlador maneje el 404
       return null; 
     }
-    if (newStock < 0) {
-        throw new HttpException('Stock cannot be negative', HttpStatus.BAD_REQUEST);
-    }
-    ingredient.stock = newStock;
-    return this.ingredientRepository.save(ingredient);
+    // TODO: Considerar si la política de stock negativo se maneja aquí o en deductStockForOrder
+    // if (newStockQuantity < 0) {
+    //     throw new HttpException('Stock cannot be negative', HttpStatus.BAD_REQUEST);
+    // }
+    ingredient.stockQuantity = newStockQuantity; // Corregido
+    return repository.save(ingredient);
   }
   
   async adjustStock(id: number, quantityChange: number, manager?: EntityManager): Promise<Ingredient | null> {
@@ -123,22 +129,23 @@ export class IngredientService {
     
     const ingredient = await repository.findOneBy({ id });
     if (!ingredient) {
-      // Lanzar excepción aquí es crucial para que la transacción que llama (si existe) haga rollback.
       throw new HttpException(`Ingredient with ID ${id} not found for stock adjustment.`, HttpStatus.NOT_FOUND);
     }
     
-    const currentStock = Number(ingredient.stock);
+    const currentStock = Number(ingredient.stockQuantity); // Corregido
     const change = Number(quantityChange);
     
     const newStockValue = currentStock + change;
 
-    if (newStockValue < 0) {
-      throw new HttpException(
-        `Insufficient stock for ingredient ${ingredient.name}. Current: ${currentStock}, Required change: ${change}. Stock would be ${newStockValue}`,
-        HttpStatus.CONFLICT // Usar CONFLICT (409) para indicar que la acción no se puede completar por el estado actual del recurso
-      );
-    }
-    ingredient.stock = newStockValue;
+    // TODO: La política de stock insuficiente se maneja de forma más granular en OrderService por ahora.
+    // Esta validación podría ser más genérica o eliminarse si OrderService ya lo cubre.
+    // if (newStockValue < 0) {
+    //   throw new HttpException(
+    //     `Insufficient stock for ingredient ${ingredient.name}. Current: ${currentStock}, Required change: ${change}. Stock would be ${newStockValue}`,
+    //     HttpStatus.CONFLICT 
+    //   );
+    // }
+    ingredient.stockQuantity = newStockValue; // Corregido
     return repository.save(ingredient);
   }
 
@@ -148,10 +155,10 @@ export class IngredientService {
     
     return this.ingredientRepository.find({
       where: {
-        stock: LessThanOrEqual(stockThreshold),
+        stockQuantity: LessThanOrEqual(stockThreshold), // Corregido
       },
-      relations: ['unitOfMeasure'], 
-      order: { stock: 'ASC' },
+      // 'unitOfMeasure' ya no es una relación a cargar
+      order: { stockQuantity: 'ASC' }, // Corregido
     });
   }
 }

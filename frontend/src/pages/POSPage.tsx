@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 import { Layout } from '../components/layout/Layout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { ScrollArea } from '../components/ui/scroll-area';
-import { PlusCircle, Trash2, Search, XCircle, AlertTriangle, ShoppingCart } from 'lucide-react';
+import { PlusCircle, Trash2, Search, XCircle, AlertTriangle, ShoppingCart, CheckCircle, Loader2 } from 'lucide-react';
 import type { Product } from '../types/product';
 import { OrderFormModal } from '../components/orders/OrderFormModal';
 import type { CreateOrderItemDto } from '../types/order';
 import type { Order } from '../types/order';
+import { orderService } from '../services/orderService';
 
 interface CartItem {
   productId: number;
@@ -55,6 +56,26 @@ export function POSPage() {
   const { data: products, isLoading: isLoadingProducts, error: productsError } = useQuery<Product[], Error>({
     queryKey: ['posProducts', debouncedSearchTerm],
     queryFn: () => fetchPOSProducts(debouncedSearchTerm),
+  });
+
+  const completeOrderMutation = useMutation<Order, Error, number>({
+    mutationFn: orderService.completeOrder,
+    onSuccess: (completedOrder) => {
+      console.log('Orden completada y stock actualizado en backend:', completedOrder);
+      alert('¡Pedido completado y stock de ingredientes actualizado exitosamente!');
+
+      queryClient.invalidateQueries({ queryKey: ['ingredients'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['posProducts'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      if (completedOrder && completedOrder.id) {
+        queryClient.invalidateQueries({ queryKey: ['orders', completedOrder.id] });
+      }
+    },
+    onError: (error) => {
+      console.error('Error al completar la orden y actualizar stock:', error);
+      alert(`Error al procesar la completitud del pedido: ${error.message}. El stock podría no estar actualizado.`);
+    },
   });
 
   const addToCart = (product: Product) => {
@@ -132,20 +153,16 @@ export function POSPage() {
     queryClient.invalidateQueries({ queryKey: ['orders'] });
     alert('¡Orden creada exitosamente!');
 
-    // INICIO: Lógica de Impresión
+    completeOrderMutation.mutate(createdOrder.id);
+
     try {
-      // 'createdOrder' contiene el ID y los datos de la orden
-      // Asumimos que la variable de entorno VITE_API_URL está configurada
       const apiUrl = import.meta.env.VITE_API_URL || '';
       await axios.post(`${apiUrl}/api/orders/${createdOrder.id}/print`);
       console.log('Solicitud de impresión enviada para la orden:', createdOrder.id);
-      // Opcional: Mostrar notificación de éxito de impresión (ej. usando un toast)
     } catch (error) {
       console.error('Error al solicitar la impresión:', error);
-      // Opcional: Mostrar notificación de error de impresión al usuario
-      alert('La orden fue creada, pero hubo un error al intentar imprimir el recibo. Revise la conexión de la impresora y la configuración del backend.');
+      alert('La orden fue creada (y el stock procesado), pero hubo un error al intentar imprimir el recibo. Revise la conexión de la impresora y la configuración del backend.');
     }
-    // FIN: Lógica de Impresión
   };
 
   const cartItemsForModal: CreateOrderItemDto[] = cart.map(item => ({
@@ -174,7 +191,7 @@ export function POSPage() {
             <ScrollArea className="h-full">
             {isLoadingProducts && (
                 <div className="flex justify-center items-center h-full p-4">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                    <Loader2 className="h-12 w-12 animate-spin text-primary" />
                 </div>
             )}
             {productsError && (
@@ -257,8 +274,15 @@ export function POSPage() {
                   <span className="text-lg font-semibold">Total:</span>
                   <span className="text-xl font-bold text-primary">${calculateTotal()}</span>
                 </div>
-                <Button className="w-full h-12 text-lg bg-green-500 hover:bg-green-700 text-white" onClick={handleProcessOrder} size="lg" disabled={cart.length === 0}>
-                  <PlusCircle className="h-5 w-5 mr-2" /> Procesar Pedido
+                <Button 
+                  className="w-full h-12 text-lg bg-green-500 hover:bg-green-700 text-white"
+                  onClick={handleProcessOrder} 
+                  size="lg" 
+                  disabled={cart.length === 0 || completeOrderMutation.isPending}
+                >
+                  {completeOrderMutation.isPending ? 
+                    <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> Procesando...</> : 
+                    <><PlusCircle className="h-5 w-5 mr-2" /> Procesar Pedido</>}
                 </Button>
               </div>
             )}

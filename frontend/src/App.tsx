@@ -14,6 +14,7 @@ import { Settings } from './pages/Settings';
 import { POSPage } from './pages/POSPage';
 import { NotFound } from './pages/NotFound';
 import { UsersPage } from './pages/UsersPage';
+import { IngredientsPage } from './pages/Inventory/IngredientsPage';
 import { MainLayout } from './components/layout/MainLayout';
 import { Toaster } from "@/components/ui/toaster";
 
@@ -129,6 +130,16 @@ export function App() {
                 <PrivateRouteComponent allowedRoles={[UserRole.OWNER]}>
                   <MainLayout title="Configuración">
                     <Settings />
+                  </MainLayout>
+                </PrivateRouteComponent>
+              }
+            />
+            <Route
+              path="/inventory/ingredients"
+              element={
+                <PrivateRouteComponent allowedRoles={[UserRole.OWNER, UserRole.ADMIN]}>
+                  <MainLayout title="Ingredientes">
+                    <IngredientsPage />
                   </MainLayout>
                 </PrivateRouteComponent>
               }

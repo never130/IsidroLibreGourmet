@@ -1,29 +1,70 @@
-import type { Ingredient } from './ingredient';
-import type { Product } from './product'; // Para la relación con Product
+import type { Ingredient, IngredientUnit } from './ingredient'; // Asumiendo que Ingredient tiene IngredientUnit
+import type { Product } from './product'; // Asumiendo que tienes un tipo Product
 import type { UnitOfMeasure } from './unitOfMeasure';
 
+/**
+ * Representa un ítem (ingrediente) dentro de una receta en el frontend.
+ * Consistente con backend/src/entities/RecipeItem.ts (simplificado).
+ */
 export interface RecipeItem {
-  id?: string; // ID del RecipeItem, si existe (podría ser uuid si se persiste individualmente)
-  recipeId?: string; // ID de la Receta a la que pertenece (string)
-  ingredientId: number; // ID del Ingrediente (number)
-  ingredient?: Ingredient;
-  quantity: number;
-  unitOfMeasureId: number; // Asumo que esta es la ID de la unidad del ingrediente en la receta
-  unitOfMeasure?: UnitOfMeasure;
-  cost?: number; // Costo de este item en la receta
+  id: number; // El ID del RecipeItem en sí, no del ingrediente
+  ingredientId: number;
+  ingredient?: Ingredient; // Opcionalmente cargado para mostrar nombre/unidad
+  quantity: number; // En la unidad base del ingrediente (g o cm³)
+  notes?: string | null;
+  // No hay unitOfMeasure aquí, se infiere del ingrediente
 }
 
+/**
+ * Representa una receta en el frontend.
+ * Consistente con backend/src/entities/Recipe.ts.
+ */
 export interface Recipe {
-  id: string; // CAMBIADO a string (UUID)
-  productId: number; // ID del Producto al que esta receta puede pertenecer (number)
-  product?: Partial<Product>;
-  name: string; // El backend no tiene 'name' en Recipe, usa el del Producto. Considerar si el frontend lo necesita.
+  id: number;
+  productId: number;
+  product?: Product; // Opcionalmente cargado
+  name?: string | null;
   description?: string | null;
   notes?: string | null;
+  estimatedCost?: number | null;
   items: RecipeItem[];
-  estimatedCost: number;
   createdAt: string;
   updatedAt: string;
+}
+
+// --- DTOs para el Frontend --- 
+
+/**
+ * DTO para un ítem de receta al crear/actualizar desde el frontend.
+ * Consistente con backend/src/dtos/recipe-item.dto.ts.
+ */
+export interface RecipeItemDto {
+  ingredientId: number;
+  quantity: number;
+  notes?: string | null;
+}
+
+/**
+ * DTO para crear una receta desde el frontend.
+ * Consistente con backend/src/dtos/create-recipe.dto.ts.
+ */
+export interface CreateRecipeDto {
+  productId: number;
+  name?: string | null;
+  description?: string | null;
+  notes?: string | null;
+  items: RecipeItemDto[];
+}
+
+/**
+ * DTO para actualizar una receta desde el frontend.
+ * Consistente con backend/src/dtos/update-recipe.dto.ts.
+ */
+export interface UpdateRecipeDto {
+  name?: string | null;
+  description?: string | null;
+  notes?: string | null;
+  items?: RecipeItemDto[]; // Si se provee, reemplaza los ítems existentes
 }
 
 // Para el formulario de RecipeItem
@@ -32,17 +73,6 @@ export type RecipeItemFormData = {
   quantity: number;
   // unitOfMeasureId: number | string; // No es necesario si se toma del ingrediente directamente o no se permite cambiar
 };
-
-export type CreateRecipeDto = {
-  productId: number;
-  // name: string; // Se tomará del producto o se definirá en el backend si es necesario
-  description?: string | null;
-  notes?: string | null;
-  items: Array<Omit<RecipeItemFormData, 'unitOfMeasureId'>>; // Ajustado para DTO del backend
-};
-
-// Si Recipe.id es string, UpdateRecipeDto debe reflejarlo para el servicio que espera { id: string, data: ... }
-export type UpdateRecipeDto = Partial<Omit<CreateRecipeDto, 'productId'>> & { items?: Array<Omit<RecipeItemFormData, 'unitOfMeasureId'>> };
 
 // Para el formulario de Recipe completo
 export type RecipeFormData = {

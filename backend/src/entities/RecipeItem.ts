@@ -9,7 +9,6 @@ import {
 } from 'typeorm';
 import { Recipe } from './Recipe';
 import { Ingredient } from './Ingredient';
-import { UnitOfMeasure } from './UnitOfMeasure';
 
 @Entity('recipe_items')
 export class RecipeItem {
@@ -32,13 +31,6 @@ export class RecipeItem {
 
   @Column({ type: 'decimal', precision: 10, scale: 3 })
   quantity: number;
-
-  @ManyToOne(() => UnitOfMeasure, { eager: true, nullable: false })
-  @JoinColumn({ name: 'unitOfMeasureId' })
-  unitOfMeasure: UnitOfMeasure;
-
-  @Column()
-  unitOfMeasureId: number;
 
   @Column({ type: 'text', nullable: true })
   notes?: string;

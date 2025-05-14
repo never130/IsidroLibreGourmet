@@ -10,7 +10,7 @@ export const recipeService = {
     return response.data;
   },
 
-  getById: async (id: string): Promise<Recipe> => {
+  getById: async (id: number): Promise<Recipe> => {
     const response = await axios.get(`${API_URL}/${id}`);
     return response.data;
   },
@@ -20,19 +20,19 @@ export const recipeService = {
     return response.data;
   },
 
-  update: async (id: string, data: UpdateRecipeDto): Promise<Recipe> => {
+  update: async (id: number, data: UpdateRecipeDto): Promise<Recipe> => {
     const response = await axios.put(`${API_URL}/${id}`, data);
     return response.data;
   },
 
-  delete: async (id: string): Promise<void> => {
+  delete: async (id: number): Promise<void> => {
     await axios.delete(`${API_URL}/${id}`);
   },
 
   // Si se necesita obtener recetas por producto directamente
   getByProductId: async (productId: number): Promise<Recipe | null> => {
     try {
-      const response = await axios.get(`${API_URL}/by-product/${productId}`);
+      const response = await axios.get(`${API_URL}/product/${productId}`);
       return response.data;
     } catch (error: any) {
       if (axios.isAxiosError(error) && error.response && error.response.status === 404) {

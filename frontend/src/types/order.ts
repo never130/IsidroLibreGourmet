@@ -1,5 +1,5 @@
 import type { Product } from './product';
-import type { UserSummary } from './user';
+import type { User } from './user';
 import { PaymentMethod as CommonPaymentMethod } from './common';
 
 export { CommonPaymentMethod as PaymentMethod };
@@ -20,9 +20,9 @@ export enum OrderStatus {
 export interface OrderItem {
   id: number;
   productId: number;
-  product?: Partial<Product>;
+  product?: Product;
   quantity: number;
-  priceAtPurchase: number;
+  price: number;
 }
 
 export interface Order {
@@ -36,7 +36,7 @@ export interface Order {
   items: OrderItem[];
   total: number;
   paymentMethod: CommonPaymentMethod;
-  createdBy?: UserSummary;
+  createdBy?: User;
   createdById: number;
   createdAt: string;
   updatedAt: string;

@@ -16,12 +16,17 @@ import { QueryFailedError, EntityManager } from 'typeorm'; // Para tipar errores
 import { ingredientService } from '../services/ingredient.service'; // Importar IngredientService
 import { Recipe } from '../entities/Recipe'; // Importar Recipe para verificación
 import { HttpException, HttpStatus } from '../utils/HttpException'; // Asumiendo que existe
+import { OrderService } from '../services/order.service';
 
 export class OrderController {
   private orderRepository = AppDataSource.getRepository(Order);
   private orderItemRepository = AppDataSource.getRepository(OrderItem);
   private productRepository = AppDataSource.getRepository(Product);
-  // Considerar inyectar repositorios en el constructor para mejor testabilidad
+  private orderService: OrderService;
+
+  constructor() {
+    this.orderService = new OrderService();
+  }
 
   /**
    * Obtiene todos los pedidos con sus items y productos relacionados
@@ -115,103 +120,28 @@ export class OrderController {
    * @param res - Response de Express
    * @returns Pedido creado
    */
-  async create(req: Request, res: Response) {
-    const createOrderDto = req.body as CreateOrderDto;
-    const userId = (req as any).user?.id;
-
-    if (!userId) {
-      return res.status(403).json({ message: 'User ID not found in token. Unauthorized.' });
-    }
-
-    const queryRunner = AppDataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
+  async create(req: Request, res: Response): Promise<void> {
     try {
-      const userRepository = queryRunner.manager.getRepository(User);
-      const createdByUser = await userRepository.findOneBy({ id: userId });
+      const createOrderDto = req.body as CreateOrderDto; // req.body ya validado por validateDto middleware
+      const userId = req.user?.id;
 
-      if (!createdByUser) {
-        await queryRunner.rollbackTransaction();
-        return res.status(404).json({ message: 'User creating the order not found.' });
+      if (!userId) {
+        throw new HttpException('Usuario no autenticado o ID no encontrado en token.', HttpStatus.UNAUTHORIZED);
       }
 
-      const newOrder = new Order();
-      newOrder.type = createOrderDto.type;
-      newOrder.customerName = createOrderDto.customerName;
-      newOrder.customerPhone = createOrderDto.customerPhone ?? null;
-      newOrder.address = createOrderDto.address ?? null;
-      newOrder.notes = createOrderDto.notes ?? null;
-      newOrder.paymentMethod = createOrderDto.paymentMethod;
-      newOrder.status = OrderStatus.PENDING;
-      newOrder.createdBy = createdByUser;
-      newOrder.createdById = createdByUser.id;
-      newOrder.items = [];
-      newOrder.total = 0;
-
-      let calculatedTotal = 0;
-
-      for (const itemDto of createOrderDto.items) {
-        const product = await queryRunner.manager.getRepository(Product).findOne({
-          where: { id: itemDto.productId }
-          // No necesitamos relaciones de receta aquí ya que el stock no se descuenta en la creación
-        });
-
-        if (!product) {
-          await queryRunner.rollbackTransaction();
-          return res.status(400).json({ message: `Product with ID ${itemDto.productId} not found.` });
-        }
-        if (!product.isActive) {
-          await queryRunner.rollbackTransaction();
-          return res.status(400).json({ message: `Product ${product.name} is not active.` });
-        }
-        
-        const orderItem = new OrderItem();
-        orderItem.product = product;
-        orderItem.productId = product.id;
-        orderItem.quantity = itemDto.quantity;
-        orderItem.price = parseFloat(product.price.toString());
-        newOrder.items.push(orderItem);
-        calculatedTotal += orderItem.price * orderItem.quantity;
-      }
-
-      newOrder.total = calculatedTotal;
-      const savedOrder = await queryRunner.manager.save(Order, newOrder);
-
-      await queryRunner.commitTransaction();
-
-      // Recuperar la orden completa para la respuesta y la impresión
-      const fullOrder = await AppDataSource.getRepository(Order).findOne({
-        where: { id: savedOrder.id },
-        relations: ['items', 'items.product', 'createdBy'], 
-      });
-
-      if (fullOrder) {
-        await printerService.printOrder(fullOrder);
-        res.status(201).json(fullOrder);
-      } else {
-        // Esto es improbable si la transacción fue exitosa.
-        res.status(500).json({ message: 'Order created but could not be retrieved for printing/response.'});
-      }
-
-    } catch (error: any) {
-      if (queryRunner.isTransactionActive) {
-        await queryRunner.rollbackTransaction();
-      }
-      console.error('Error creating order:', error);
-      let errorMessage = 'Error creating order';
+      // Combinar DTO con userId para el servicio
+      const orderDataForService = { ...createOrderDto, createdById: userId };
+      
+      const order = await this.orderService.createOrder(orderDataForService);
+      res.status(HttpStatus.CREATED).json(order);
+    } catch (error) {
       if (error instanceof HttpException) {
-        return res.status(error.status || 500).json({ message: error.message, details: error.errors });
+        res.status(error.status).json({ message: error.message });
+      } else {
+        console.error('Error creating order:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Error interno al crear el pedido';
+        res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: errorMessage });
       }
-      if (error instanceof QueryFailedError && (error as any).message.includes('UQ_ORDER_CUSTOMER_NAME_TYPE')) {
-          return res.status(409).json({ message: 'Order with similar details already exists.', details: (error as any).message });
-      }
-      if (error instanceof Error) {
-          errorMessage = error.message;
-      }
-      res.status(500).json({ message: errorMessage, details: error.constructor?.name });
-    } finally {
-      await queryRunner.release();
     }
   }
 
@@ -221,77 +151,27 @@ export class OrderController {
    * @param res - Response de Express
    * @returns Pedido actualizado
    */
-  async updateStatus(req: Request, res: Response) {
-    const { id } = req.params;
-    const updateOrderStatusDto = req.body as UpdateOrderStatusDto;
-
-    const queryRunner = AppDataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
+  async updateStatus(req: Request, res: Response): Promise<void> {
     try {
-      const order = await queryRunner.manager.getRepository(Order).findOne({
-        where: { id: parseInt(id) },
-        relations: ['items'] 
-      });
+      const orderId = parseInt(req.params.id, 10);
+      const { status } = req.body; // Esperamos un campo 'status' en el body
 
-      if (!order) {
-        await queryRunner.rollbackTransaction();
-        return res.status(404).json({ message: 'Order not found' });
+      if (isNaN(orderId)) {
+        throw new HttpException('ID de pedido inválido', HttpStatus.BAD_REQUEST);
+      }
+      if (!status || !Object.values(OrderStatus).includes(status as OrderStatus)) {
+        throw new HttpException('Estado de pedido inválido o no proporcionado', HttpStatus.BAD_REQUEST);
       }
 
-      const previousStatus = order.status;
-      order.status = updateOrderStatusDto.status;
-      
-      // Guardar el cambio de estado primero
-      const savedOrder = await queryRunner.manager.save(Order, order);
-
-      // Lógica de descuento de Stock si el pedido se marca como COMPLETADO y no lo estaba antes
-      if (previousStatus !== OrderStatus.COMPLETED && savedOrder.status === OrderStatus.COMPLETED) {
-        // Volver a cargar la orden con todas las relaciones necesarias DENTRO de la transacción
-        const orderForStockDeduction = await queryRunner.manager.getRepository(Order).findOne({
-            where: { id: savedOrder.id },
-            relations: [
-                'items', 
-                'items.product', 
-                'items.product.recipe', 
-                'items.product.recipe.items', 
-                'items.product.recipe.items.ingredient'
-            ]
-        });
-
-        if (!orderForStockDeduction) {
-            // Esto sería muy inusual si savedOrder existe.
-            throw new HttpException('Order disappeared during status update for stock deduction.', HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-        await this._handleStockDeduction(orderForStockDeduction, queryRunner.manager);
+      const updatedOrder = await this.orderService.updateOrderStatus(orderId, status as OrderStatus);
+      res.status(HttpStatus.OK).json(updatedOrder);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        res.status(error.status).json({ message: error.message });
+      } else {
+        console.error('Error updating order status:', error);
+        res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Error interno al actualizar estado del pedido' });
       }
-
-      await queryRunner.commitTransaction();
-      
-      // Devolver la orden con el estado actualizado y potencialmente items/productos
-      const finalOrder = await AppDataSource.getRepository(Order).findOne({
-        where: { id: savedOrder.id },
-        relations: ['items', 'items.product', 'createdBy'] 
-      });
-
-      res.json(finalOrder);
-
-    } catch (error: any) {
-      if (queryRunner.isTransactionActive) {
-        await queryRunner.rollbackTransaction();
-      }
-      console.error('Error updating order status:', error);
-      let errorMessage = 'Error updating order status';
-       if (error instanceof HttpException) {
-        return res.status(error.status || 500).json({ message: error.message, details: error.errors });
-      }
-      if (error instanceof Error) {
-          errorMessage = error.message;
-      }
-      res.status(500).json({ message: errorMessage, details: error.constructor?.name });
-    } finally {
-      await queryRunner.release();
     }
   }
 
@@ -419,6 +299,48 @@ export class OrderController {
     } catch (error: any) {
       console.error('Error getting active orders:', error);
       res.status(500).json({ message: 'Error getting active orders' });
+    }
+  }
+
+  async getOne(req: Request, res: Response): Promise<void> {
+    try {
+      const orderId = parseInt(req.params.id, 10);
+      if (isNaN(orderId)) {
+        throw new HttpException('ID de pedido inválido', HttpStatus.BAD_REQUEST);
+      }
+      const order = await this.orderService.findOrderById(orderId);
+      if (!order) {
+        throw new HttpException(`Pedido con ID ${orderId} no encontrado`, HttpStatus.NOT_FOUND);
+      }
+      res.status(HttpStatus.OK).json(order);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        res.status(error.status).json({ message: error.message });
+      } else {
+        console.error('Error fetching order:', error);
+        res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Error interno al obtener el pedido' });
+      }
+    }
+  }
+
+  async complete(req: Request, res: Response): Promise<void> {
+    try {
+      const orderId = parseInt(req.params.id, 10);
+      if (isNaN(orderId)) {
+        throw new HttpException('ID de pedido inválido', HttpStatus.BAD_REQUEST);
+      }
+
+      const completedOrder = await this.orderService.completeOrder(orderId);
+      res.status(HttpStatus.OK).json(completedOrder);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        res.status(error.status).json({ message: error.message });
+      } else {
+        console.error('Error completing order:', error);
+        // Verificar si el error es una instancia de Error para acceder a .message de forma segura
+        const errorMessage = error instanceof Error ? error.message : 'Error interno al completar el pedido';
+        res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: errorMessage });
+      }
     }
   }
 } 

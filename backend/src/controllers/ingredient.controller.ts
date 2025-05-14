@@ -3,8 +3,13 @@ import { ingredientService } from '../services/ingredient.service';
 import { CreateIngredientDto, UpdateIngredientDto } from '../dtos/ingredient.dto';
 import { HttpException, HttpStatus } from '../utils/HttpException';
 import { validate } from 'class-validator';
+import { AppDataSource } from '../data-source';
+import { Ingredient } from '../entities/Ingredient';
+import { FindOptionsWhere } from 'typeorm';
 
 export class IngredientController {
+  private ingredientRepository = AppDataSource.getRepository(Ingredient);
+
   async create(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const createDto = new CreateIngredientDto();
@@ -25,8 +30,8 @@ export class IngredientController {
   async findAll(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       // TODO: Considerar paginación, filtros (ej. por nombre), y ordenación desde req.query
-      // También cargar relaciones como unitOfMeasure si es necesario para la lista
-      const ingredients = await ingredientService.findAll({ relations: ['unitOfMeasure'] });
+      // unitOfMeasure ya es un campo directo, no una relación a cargar.
+      const ingredients = await ingredientService.findAll();
       res.status(HttpStatus.OK).json(ingredients);
     } catch (error) {
       next(error);
@@ -39,7 +44,8 @@ export class IngredientController {
       if (isNaN(id)) {
         throw new HttpException('Invalid ID format', HttpStatus.BAD_REQUEST);
       }
-      const ingredient = await ingredientService.findOne(id, { relations: ['unitOfMeasure'] });
+      // unitOfMeasure ya es un campo directo, no una relación a cargar.
+      const ingredient = await ingredientService.findOne(id);
       if (!ingredient) {
         throw new HttpException('Ingredient not found', HttpStatus.NOT_FOUND);
       }
