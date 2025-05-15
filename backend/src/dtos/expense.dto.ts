@@ -1,5 +1,5 @@
 import { IsString, IsNumber, IsEnum, IsOptional, IsDate } from 'class-validator';
-import { ExpenseCategory, PaymentMethod } from '../entities/Expense';
+import { ExpenseCategory, PaymentMethodExpense } from '../entities/Expense';
 
 export class CreateExpenseDto {
   @IsString()
@@ -11,8 +11,8 @@ export class CreateExpenseDto {
   @IsEnum(ExpenseCategory)
   category: ExpenseCategory;
 
-  @IsEnum(PaymentMethod)
-  paymentMethod: PaymentMethod;
+  @IsEnum(PaymentMethodExpense)
+  paymentMethod: PaymentMethodExpense;
 
   @IsDate()
   date: Date;
@@ -39,9 +39,9 @@ export class UpdateExpenseDto {
   @IsOptional()
   category?: ExpenseCategory;
 
-  @IsEnum(PaymentMethod)
+  @IsEnum(PaymentMethodExpense)
   @IsOptional()
-  paymentMethod?: PaymentMethod;
+  paymentMethod?: PaymentMethodExpense;
 
   @IsDate()
   @IsOptional()

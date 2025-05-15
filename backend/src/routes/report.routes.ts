@@ -10,7 +10,7 @@ const router = Router();
 const reportController = new ReportController();
 
 // Middleware de autenticación y rol base para todas las rutas de reportes
-router.use(authMiddleware, roleMiddleware([UserRole.OWNER, UserRole.DEVELOPER])); // Solo OWNER y DEVELOPER
+router.use(authMiddleware, roleMiddleware([UserRole.OWNER])); // Solo OWNER
 
 // Rutas de Reportes de Ventas
 router.get('/summary', 

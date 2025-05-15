@@ -1,10 +1,10 @@
 import { AppDataSource } from '../data-source';
-import { Ingredient } from '../entities/Ingredient';
+import { Ingredient, UnitOfMeasure } from '../entities/Ingredient';
 // import { UnitOfMeasure } from '../entities/UnitOfMeasure'; // Ya no es necesario
 import { CreateIngredientDto, UpdateIngredientDto } from '../dtos/ingredient.dto';
 import { FindManyOptions, FindOneOptions, LessThanOrEqual, Repository, EntityManager } from 'typeorm';
 import { HttpException, HttpStatus } from '../utils/HttpException';
-import { IngredientUnit } from '../enums/ingredient-unit.enum'; // Asegurarse que está importado
+// import { IngredientUnit } from '../enums/ingredient-unit.enum'; // Eliminado
 
 // Necesitaremos una clase HttpException. Si no la tienes, deberás crearla.
 // Ejemplo básico:
@@ -31,7 +31,7 @@ export class IngredientService {
   }
 
   async create(createDto: CreateIngredientDto): Promise<Ingredient> {
-    if (!Object.values(IngredientUnit).includes(createDto.unitOfMeasure)) {
+    if (!Object.values(UnitOfMeasure).includes(createDto.unitOfMeasure as UnitOfMeasure)) {
       throw new HttpException(`Invalid unitOfMeasure: ${createDto.unitOfMeasure}`, HttpStatus.BAD_REQUEST);
     }
 
@@ -78,7 +78,7 @@ export class IngredientService {
       ingredient.description = updateDto.description || null;
     }
     if (updateDto.unitOfMeasure !== undefined) {
-      if (!Object.values(IngredientUnit).includes(updateDto.unitOfMeasure)) {
+      if (!Object.values(UnitOfMeasure).includes(updateDto.unitOfMeasure as UnitOfMeasure)) {
         throw new HttpException(`Invalid unitOfMeasure: ${updateDto.unitOfMeasure}`, HttpStatus.BAD_REQUEST);
       }
       ingredient.unitOfMeasure = updateDto.unitOfMeasure;

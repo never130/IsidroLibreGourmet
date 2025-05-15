@@ -69,15 +69,13 @@ export class UserController {
         }
       }
 
-      const hashedPassword = await bcrypt.hash(password, 10);
-
       const user = userRepository.create({
         username,
-        password: hashedPassword,
+        password,
         firstName,
         lastName,
         email,
-        role: role || UserRole.CASHIER,
+        role: role || UserRole.OWNER,
         isActive: typeof isActive === 'boolean' ? isActive : true
       });
 
@@ -307,7 +305,8 @@ export class UserController {
 
       const userRepository = AppDataSource.getRepository(User);
       const user = await userRepository.findOne({
-        where: { username }
+        where: { username },
+        select: ['id', 'username', 'password', 'role', 'isActive', 'firstName', 'lastName', 'email', 'lastLogin', 'createdAt', 'updatedAt']
       });
 
       if (!user) {

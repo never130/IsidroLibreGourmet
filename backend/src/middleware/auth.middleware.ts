@@ -40,9 +40,9 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       id: decoded.id,
       username: decoded.username,
       role: decoded.role,
-      firstName: decoded.firstName,
-      lastName: decoded.lastName,
-      email: decoded.email,
+      firstName: decoded.firstName || null,
+      lastName: decoded.lastName || null,
+      email: decoded.email || null,
     };
 
     next();

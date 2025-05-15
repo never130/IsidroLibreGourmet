@@ -88,10 +88,15 @@ export function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
   });
 
   const onSubmit: SubmitHandler<ExpenseFormData> = (data) => {
+    const dataToSend = {
+      ...data,
+      date: new Date(data.date).toISOString(),
+    };
+
     if (expense) {
-      updateMutation.mutate(data);
+      updateMutation.mutate(dataToSend);
     } else {
-      createMutation.mutate(data);
+      createMutation.mutate(dataToSend);
     }
   };
 

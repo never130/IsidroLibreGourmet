@@ -19,7 +19,7 @@ export const AppDataSource = new DataSource({
   password: process.env.DB_PASSWORD || 'postgres',
   database: process.env.DB_NAME || 'isidro_libre_gourmet',
   synchronize: true,
-  logging: process.env.NODE_ENV === 'development',
+  logging: ['query', 'error'],
   entities: [User, Product, Order, OrderItem, Expense, BusinessSetting, UnitOfMeasure, Ingredient, Recipe, RecipeItem],
   subscribers: [],
   migrations: ['src/migrations/**/*.ts'],

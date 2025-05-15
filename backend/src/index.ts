@@ -99,10 +99,9 @@ AppDataSource.initialize()
     });
 
     if (!defaultUser) {
-      const hashedPassword = await bcrypt.hash('admin123', 10);
       const adminUser = userRepository.create({
         username: 'admin',
-        password: hashedPassword,
+        password: 'admin123',
         role: UserRole.OWNER,
         isActive: true
       });

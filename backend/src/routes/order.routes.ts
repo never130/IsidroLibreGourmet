@@ -49,7 +49,7 @@ router.get(
 router.patch( // Cambiado a PATCH para consistencia con la definición que tenía validateDto
     '/:id/status',
     // authMiddleware, // Ya aplicado globalmente
-    roleMiddleware([UserRole.ADMIN, UserRole.OWNER, UserRole.CASHIER]),
+    roleMiddleware([UserRole.ADMIN, UserRole.OWNER]),
     validateDto(UpdateOrderStatusDto),
     orderController.updateStatus.bind(orderController)
 );
@@ -59,7 +59,7 @@ router.patch( // Cambiado a PATCH para consistencia con la definición que tení
 router.post(
     '/:id/complete',
     // authMiddleware, // Ya aplicado globalmente
-    roleMiddleware([UserRole.ADMIN, UserRole.OWNER, UserRole.CASHIER]),
+    roleMiddleware([UserRole.ADMIN, UserRole.OWNER]),
     orderController.complete.bind(orderController)
 );
 

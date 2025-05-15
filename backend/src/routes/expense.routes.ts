@@ -13,7 +13,7 @@ const expenseController = new ExpenseController();
 router.use(authMiddleware);
 
 // Proteger todas las rutas de gastos para que solo OWNER y DEVELOPER puedan acceder
-router.use(roleMiddleware([UserRole.OWNER, UserRole.DEVELOPER]));
+router.use(roleMiddleware([UserRole.OWNER]));
 
 // Rutas (ahora todas protegidas por authMiddleware y roleMiddleware de arriba)
 router.get('/', expenseController.getAll.bind(expenseController));

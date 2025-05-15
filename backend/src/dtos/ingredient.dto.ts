@@ -1,5 +1,5 @@
 import { IsString, IsNotEmpty, MaxLength, IsOptional, IsNumber, Min, IsInt, IsEnum } from 'class-validator';
-import { IngredientUnit } from '../enums/ingredient-unit.enum';
+import { UnitOfMeasure } from '../entities/Ingredient';
 
 export class CreateIngredientDto {
   @IsString()
@@ -17,9 +17,9 @@ export class CreateIngredientDto {
   @IsNotEmpty()
   stockQuantity: number;
 
-  @IsEnum(IngredientUnit)
+  @IsEnum(UnitOfMeasure)
   @IsNotEmpty()
-  unitOfMeasure: IngredientUnit;
+  unitOfMeasure: UnitOfMeasure;
 
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 3 })
@@ -48,9 +48,9 @@ export class UpdateIngredientDto {
   @MaxLength(1000)
   description?: string | null;
 
-  @IsEnum(IngredientUnit)
+  @IsEnum(UnitOfMeasure)
   @IsOptional()
-  unitOfMeasure?: IngredientUnit;
+  unitOfMeasure?: UnitOfMeasure;
 
   @IsNumber({ maxDecimalPlaces: 3 })
   @Min(0)

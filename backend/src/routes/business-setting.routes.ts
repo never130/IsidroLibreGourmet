@@ -20,7 +20,7 @@ router.get(
 router.put(
     '/', 
     authMiddleware, 
-    roleMiddleware([UserRole.OWNER, UserRole.DEVELOPER]),
+    roleMiddleware([UserRole.OWNER]),
     validateDto(BusinessSettingDto),
     controller.updateSettings
 );
