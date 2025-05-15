@@ -70,8 +70,22 @@ interface FrontendProductsReport {
   stats?: ProductStatsData;
   topSelling?: TopProductData[];
   lowStock?: LowStockProductData[];
+  // Podríamos añadir aquí el stock de ingredientes si lo queremos bajo el reporte de "Productos"
+  // O crear un nuevo tipo de reporte "INVENTORY"
 }
 
+// +++ NUEVA INTERFAZ PARA STOCK DE INGREDIENTES +++
+interface IngredientStockData {
+  id: number;
+  name: string;
+  description?: string | null;
+  stockQuantity: number;
+  unitOfMeasure: string; // Asumiendo que es el string del enum
+  costPrice?: number | null;
+  lowStockThreshold?: number | null;
+  supplier?: string | null;
+  updatedAt: string; // O Date si se parsea
+}
 
 // Tipos de datos que usaba antes (se pueden eliminar o migrar)
 // interface SalesReport { ... }
@@ -183,11 +197,21 @@ export function Reports() {
     lowStock: lowStockProducts,
   } : null;
 
+  // +++ QUERY PARA STOCK DE INGREDIENTES +++
+  const { data: ingredientStockData, isLoading: isLoadingIngredientStock } = useQuery<IngredientStockData[]>({
+    queryKey: ['reports', 'ingredientStock'],
+    queryFn: async () => {
+      const response = await axios.get('/api/reports/ingredient-stock');
+      return response.data;
+    },
+    enabled: selectedReport === 'PRODUCTS' // O podríamos tener un nuevo ReportType 'INVENTORY'
+  });
+
   // isLoadingOldSales ya no existe, se reemplaza por los nuevos loaders de ventas
   const isLoading = 
     (selectedReport === 'SALES' && (isLoadingSalesSummary || isLoadingOrderStats || isLoadingSalesByPaymentMethod || isLoadingRevenueOverTime)) ||
     (selectedReport === 'EXPENSES' && isLoadingExpenses) ||
-    (selectedReport === 'PRODUCTS' && (isLoadingProductStats || isLoadingTopProducts || isLoadingLowStock));
+    (selectedReport === 'PRODUCTS' && (isLoadingProductStats || isLoadingTopProducts || isLoadingLowStock || isLoadingIngredientStock));
 
   if (isLoading) {
     return (
@@ -496,31 +520,84 @@ export function Reports() {
                     ))}
                   </div>
                 </div>
-              </div>
-
-              <div className="mt-6">
-                <h3 className="text-lg font-semibold mb-4">Productos con Bajo Stock (Umbral: {lowStockThreshold})</h3>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock Actual</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {productsReportData.lowStock?.map((product) => (
-                        <tr key={product.id}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.name}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.category ? product.category.toString().replace('_',' ') : 'N/A'}</td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">{product.stock}</td>
-                        </tr>
+                {/* Aquí se mostrarán los productos con bajo stock */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Productos con Bajo Stock (Umbral: {lowStockThreshold})</h3>
+                  {isLoadingLowStock && <p>Cargando productos con bajo stock...</p>}
+                  {!isLoadingLowStock && productsReportData?.lowStock && productsReportData.lowStock.length > 0 ? (
+                    <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+                      {productsReportData.lowStock.map((product) => (
+                        <div key={product.id} className={`p-3 rounded-md shadow-sm ${product.stock <= 0 ? 'bg-red-100 dark:bg-red-900' : 'bg-yellow-50 dark:bg-yellow-800'}`}>
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium text-sm">{product.name}</span>
+                            <span className={`px-2 py-0.5 text-xs rounded-full ${product.stock <=0 ? 'bg-red-200 text-red-800 dark:bg-red-700 dark:text-red-100' : 'bg-yellow-200 text-yellow-800 dark:bg-yellow-600 dark:text-yellow-100'}`}>
+                              Stock: {product.stock}
+                            </span>
+                          </div>
+                          {product.category && <p className="text-xs text-gray-500 dark:text-gray-400">{product.category}</p>}
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {!isLoadingLowStock && "No hay productos por debajo del umbral de bajo stock."}
+                    </p>
+                  )}
                 </div>
               </div>
+
+              {/* +++ NUEVA SECCIÓN PARA STOCK DE INGREDIENTES +++ */}
+              <section className="mt-8">
+                <h2 className="text-xl font-semibold mb-4 text-primary">Stock de Ingredientes</h2>
+                {isLoadingIngredientStock && <p>Cargando stock de ingredientes...</p>}
+                {!isLoadingIngredientStock && ingredientStockData && ingredientStockData.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 rounded-lg shadow">
+                      <thead className="bg-gray-50 dark:bg-gray-700">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Nombre</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Stock Actual</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Unidad</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Costo Unit.</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Umbral Bajo Stock</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Descripción</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Proveedor</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Últ. Act.</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                        {ingredientStockData.map((ing) => {
+                          const isLow = typeof ing.lowStockThreshold === 'number' && ing.stockQuantity <= ing.lowStockThreshold;
+                          return (
+                            <tr key={ing.id} className={`${isLow ? 'bg-orange-50 dark:bg-orange-800/30' : ''}`}>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{ing.name}</td>
+                              <td className={`px-4 py-3 whitespace-nowrap text-sm ${isLow ? 'font-bold text-orange-600 dark:text-orange-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                                {ing.stockQuantity}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{ing.unitOfMeasure}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                {typeof ing.costPrice === 'number' ? `$${ing.costPrice.toFixed(2)}` : '-'}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                {typeof ing.lowStockThreshold === 'number' ? ing.lowStockThreshold : '-'}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 truncate max-w-xs">{ing.description || '-'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{ing.supplier || '-'}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                {new Date(ing.updatedAt).toLocaleDateString()}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {!isLoadingIngredientStock && "No hay datos de stock de ingredientes."}
+                  </p>
+                )}
+              </section>
             </div>
           )}
         </div>

@@ -66,4 +66,10 @@ router.get('/expenses-summary',
 // /sales/daily (getDailySales deprecado)
 // /sales/detailed (getSalesReport deprecado)
 
+// Nueva ruta para el stock de ingredientes
+router.get('/ingredient-stock', (req, res) => reportController.getIngredientStock(req, res));
+
+// TODO: Considerar añadir cacheo para rutas de reportes que no cambian frecuentemente
+// TODO: Validar parámetros de query (fechas, limit, threshold) usando class-validator y DTOs
+
 export default router; 

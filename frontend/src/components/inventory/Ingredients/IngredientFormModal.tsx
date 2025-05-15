@@ -31,11 +31,10 @@ const ingredientFormSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
   stockQuantity: z.coerce.number().min(0, 'El stock no puede ser negativo'),
   unitOfMeasure: z.nativeEnum(IngredientUnit, { required_error: 'La unidad es requerida' }),
-  // Campos opcionales que podrías añadir aquí si los manejas en el formulario:
-  // description: z.string().optional(),
-  // costPrice: z.coerce.number().optional(),
-  // lowStockThreshold: z.coerce.number().optional(),
-  // supplier: z.string().optional(),
+  costPrice: z.coerce.number().min(0, 'El costo no puede ser negativo').optional().nullable(),
+  lowStockThreshold: z.coerce.number().min(0, 'El umbral no puede ser negativo').optional().nullable(),
+  description: z.string().optional().nullable(),
+  supplier: z.string().optional().nullable(),
 });
 
 type IngredientFormData = z.infer<typeof ingredientFormSchema>;
@@ -59,6 +58,10 @@ export function IngredientFormModal({ isOpen, onClose, ingredientToEdit }: Ingre
       name: '',
       stockQuantity: 0,
       // unitOfMeasure: undefined, // Se establece en useEffect
+      costPrice: null,
+      lowStockThreshold: null,
+      description: null,
+      supplier: null,
     },
   });
 
@@ -68,12 +71,20 @@ export function IngredientFormModal({ isOpen, onClose, ingredientToEdit }: Ingre
         name: ingredientToEdit.name,
         stockQuantity: ingredientToEdit.stockQuantity,
         unitOfMeasure: ingredientToEdit.unitOfMeasure,
+        costPrice: ingredientToEdit.costPrice ?? null,
+        lowStockThreshold: ingredientToEdit.lowStockThreshold ?? null,
+        description: ingredientToEdit.description ?? null,
+        supplier: ingredientToEdit.supplier ?? null,
       });
     } else {
       reset({
         name: '',
         stockQuantity: 0,
         unitOfMeasure: IngredientUnit.GRAM,
+        costPrice: null,
+        lowStockThreshold: null,
+        description: null,
+        supplier: null,
       });
     }
   }, [ingredientToEdit, reset]);
@@ -98,7 +109,14 @@ export function IngredientFormModal({ isOpen, onClose, ingredientToEdit }: Ingre
   });
 
   const onSubmit = (data: IngredientFormData) => {
-    mutation.mutate(data);
+    // Filtrar nulls que no deberían enviarse si el backend no los espera o los trata como string "null"
+    const payload: Partial<IngredientFormData> = { ...data };
+    if (payload.costPrice === null) delete payload.costPrice;
+    if (payload.lowStockThreshold === null) delete payload.lowStockThreshold;
+    if (payload.description === null) delete payload.description;
+    if (payload.supplier === null) delete payload.supplier;
+    
+    mutation.mutate(payload as CreateIngredientDto | UpdateIngredientDto);
   };
 
   if (!isOpen) return null;
@@ -161,6 +179,31 @@ export function IngredientFormModal({ isOpen, onClose, ingredientToEdit }: Ingre
               />
               {errors.unitOfMeasure && <p className="text-xs text-red-500 mt-1">{errors.unitOfMeasure.message}</p>}
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="costPrice">Precio de Costo (por unidad)</Label>
+              <Input id="costPrice" type="number" step="any" {...register('costPrice')} placeholder="Ej: 2.50" />
+              {errors.costPrice && <p className="text-xs text-red-500 mt-1">{errors.costPrice.message}</p>}
+            </div>
+            <div>
+              <Label htmlFor="lowStockThreshold">Umbral de Stock Bajo</Label>
+              <Input id="lowStockThreshold" type="number" step="any" {...register('lowStockThreshold')} placeholder="Ej: 50" />
+              {errors.lowStockThreshold && <p className="text-xs text-red-500 mt-1">{errors.lowStockThreshold.message}</p>}
+            </div>
+          </div>
+          
+          <div>
+            <Label htmlFor="description">Descripción (Opcional)</Label>
+            <Input id="description" {...register('description')} placeholder="Ej: Harina de trigo tipo 000" />
+            {errors.description && <p className="text-xs text-red-500 mt-1">{errors.description.message}</p>}
+          </div>
+
+          <div>
+            <Label htmlFor="supplier">Proveedor (Opcional)</Label>
+            <Input id="supplier" {...register('supplier')} placeholder="Ej: Distribuidora ABC" />
+            {errors.supplier && <p className="text-xs text-red-500 mt-1">{errors.supplier.message}</p>}
           </div>
 
           <DialogFooter>

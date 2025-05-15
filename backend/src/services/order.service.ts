@@ -238,41 +238,55 @@ export class OrderService {
       return;
     }
 
+    const productRepo = manager.getRepository(Product); // Repositorio de Product dentro de la transacción
+
     for (const orderItem of order.items) {
       if (!orderItem.product) {
-        // Esto no debería pasar si las relaciones se cargaron correctamente en completeOrder.
         console.warn(`OrderItem ${orderItem.id} en el pedido ${order.id} no tiene producto asociado cargado. Omitiendo deducción de stock para este ítem.`);
         continue;
       }
-      const product = orderItem.product;
-      
-      // Buscar la receta del producto usando el RecipeService.
-      // Se pasa el EntityManager para que la búsqueda sea parte de la transacción.
-      const recipe = await this.recipeService.findOneByProductId(product.id, manager);
+      // Aseguramos que el producto completo, incluyendo su estado de manageStock, esté cargado.
+      // La relación 'items.product' cargada en completeOrder ya debería tener esta información.
+      const product = orderItem.product; 
 
-      // Si el producto no tiene receta o la receta no tiene ítems, no se puede deducir stock de ingredientes.
-      if (!recipe || !recipe.items || recipe.items.length === 0) {
-        console.log(`Producto ${product.name} (ID: ${product.id}) en el pedido ${order.id} no tiene receta o la receta no tiene ítems. No se deduce stock de ingredientes para este producto.`);
-        continue;
-      }
-      console.log(`Procesando receta para producto ${product.name} (ID: ${product.id}) en pedido ${order.id}`);
+      console.log(`Procesando deducción de stock para producto ${product.name} (ID: ${product.id}), manageStock: ${product.manageStock}`);
 
-      for (const recipeItem of recipe.items) {
-        if (!recipeItem.ingredient) {
-            // Esto no debería pasar si la receta y sus ítems se cargan con sus ingredientes.
+      if (product.manageStock) {
+        // El producto se gestiona por stock directo
+        console.log(`Producto ${product.name} se gestiona por stock directo. Stock actual: ${product.stock}, Cantidad a deducir: ${orderItem.quantity}`);
+        if (product.stock < orderItem.quantity) {
+          throw new HttpException(
+            `Stock insuficiente para el producto ${product.name} (ID: ${product.id}). Stock disponible: ${product.stock}, Solicitado: ${orderItem.quantity}`,
+            HttpStatus.CONFLICT // 409 Conflict es apropiado aquí
+          );
+        }
+        product.stock -= orderItem.quantity;
+        await productRepo.save(product); // Guardar el producto actualizado dentro de la transacción
+        console.log(`Stock del producto ${product.name} (ID: ${product.id}) actualizado a ${product.stock}.`);
+      } else {
+        // El producto se gestiona por receta (manageStock: false)
+        const recipe = await this.recipeService.findOneByProductId(product.id, manager);
+
+        if (!recipe || !recipe.items || recipe.items.length === 0) {
+          console.warn(`Producto ${product.name} (ID: ${product.id}) está configurado para gestión por receta (manageStock: false) pero no tiene receta o su receta no tiene ítems. No se deduce stock de ingredientes.`);
+          continue;
+        }
+        console.log(`Procesando receta para producto ${product.name} (ID: ${product.id}) en pedido ${order.id}`);
+
+        for (const recipeItem of recipe.items) {
+          if (!recipeItem.ingredient) {
             console.warn(`RecipeItem (ID: ${recipeItem.id}) para producto ${product.name} no tiene la entidad Ingredient cargada. Omitiendo.`);
             continue;
-        }
-        const ingredient = recipeItem.ingredient;
-        const quantityToDeduct = recipeItem.quantity * orderItem.quantity;
+          }
+          const ingredient = recipeItem.ingredient;
+          const quantityToDeduct = recipeItem.quantity * orderItem.quantity;
 
-        console.log(`Intentando deducir ${quantityToDeduct} de ${ingredient.unitOfMeasure} del ingrediente ${ingredient.name} (ID: ${ingredient.id}). Stock actual: ${ingredient.stockQuantity}`);
-        
-        // El IngredientService se encargará de la lógica de actualización de stock y de lanzar error si no hay suficiente.
-        // Se pasa el EntityManager para que la actualización de stock sea parte de la transacción.
-        await this.ingredientService.adjustStock(ingredient.id, -quantityToDeduct, manager); // Restar del stock
-        
-        console.log(`Stock del ingrediente ${ingredient.name} (ID: ${ingredient.id}) actualizado después de la deducción.`);
+          console.log(`Intentando deducir ${quantityToDeduct} de ${ingredient.unitOfMeasure || 'unidades'} del ingrediente ${ingredient.name} (ID: ${ingredient.id}). Stock actual: ${ingredient.stockQuantity}`);
+          
+          await this.ingredientService.adjustStock(ingredient.id, -quantityToDeduct, manager);
+          
+          console.log(`Stock del ingrediente ${ingredient.name} (ID: ${ingredient.id}) actualizado después de la deducción.`);
+        }
       }
     }
   }

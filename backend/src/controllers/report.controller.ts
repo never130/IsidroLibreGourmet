@@ -11,6 +11,7 @@ import { Product, ProductCategory } from '../entities/Product';
 import { OrderItem } from '../entities/OrderItem';
 import { Between, LessThanOrEqual, MoreThanOrEqual, FindOptionsWhere } from 'typeorm';
 import { ReportParamsDto } from '../dtos/report.dto';
+import { Ingredient } from '../entities/Ingredient';
 
 export class ReportController {
   // Definir repositorios como propiedades de instancia
@@ -18,6 +19,7 @@ export class ReportController {
   private orderItemRepository = AppDataSource.getRepository(OrderItem);
   private productRepository = AppDataSource.getRepository(Product);
   private expenseRepository = AppDataSource.getRepository(Expense);
+  private ingredientRepository = AppDataSource.getRepository(Ingredient);
 
   private getOrderQueryBase(startDate?: string, endDate?: string) {
     const where: FindOptionsWhere<Order> = {};
@@ -243,9 +245,10 @@ export class ReportController {
       const products = await this.productRepository.find({
         where: {
           stock: LessThanOrEqual(Number(threshold)),
-          isActive: true
+          isActive: true,
+          manageStock: true // Asegurar que solo productos con gestión de stock directa
         },
-        select: ['id', 'name', 'stock', 'category', 'price', 'cost', 'imageUrl', 'isActive']
+        select: ['id', 'name', 'stock', 'category', 'price', 'cost', 'imageUrl', 'isActive', 'manageStock'] // Incluir manageStock en select
       });
       
       res.json(products);
@@ -433,6 +436,32 @@ export class ReportController {
     } catch (error) {
       console.error('Error en getSalesReport (deprecado):', error);
       res.status(500).json({ message: 'Error generando el reporte de ventas' });
+    }
+  }
+
+  // Nuevo método para obtener el stock de todos los ingredientes
+  async getIngredientStock(req: Request, res: Response) {
+    try {
+      const ingredients = await this.ingredientRepository.find({
+        select: [
+          'id',
+          'name',
+          'description',
+          'stockQuantity',
+          'unitOfMeasure',
+          'costPrice',
+          'lowStockThreshold',
+          'supplier',
+          'updatedAt' // Para saber cuándo fue la última actualización
+        ],
+        order: {
+          name: 'ASC' // Ordenar alfabéticamente por nombre
+        }
+      });
+      res.json(ingredients);
+    } catch (error) {
+      console.error('Error al obtener stock de ingredientes:', error);
+      res.status(500).json({ message: 'Error al obtener stock de ingredientes' });
     }
   }
 
