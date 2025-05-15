@@ -5,8 +5,16 @@ import type { UnitOfMeasure } from './unitOfMeasure';
  * Debe ser consistente con el enum del backend: backend/src/enums/ingredient-unit.enum.ts
  */
 export enum IngredientUnit {
-  GRAMS = 'g',
-  CUBIC_CENTIMETERS = 'cm³'
+  GRAM = 'Gramos (gr)',
+  KILOGRAM = 'Kilogramos (kg)',
+  MILLILITER = 'Mililitros (ml)',
+  LITER = 'Litros (L)',
+  UNIT = 'Unidad(es)',
+  TEASPOON = 'Cucharadita(s)',
+  TABLESPOON = 'Cucharada(s)',
+  CUP = 'Taza(s)',
+  PINCH = 'Pizca(s)',
+  OTHER = 'Otro'
 }
 
 /**

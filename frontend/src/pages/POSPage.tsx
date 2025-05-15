@@ -19,7 +19,7 @@ export function POSPage() {
     data: currentOrder, 
     isLoading: isLoadingOrder, 
     error: orderError 
-  } = useQuery<Order, Error>({
+  } = useQuery<Order, Error, Order>({
     queryKey: ['orders', orderId],
     queryFn: () => {
       if (!orderId) throw new Error("Order ID is required");
@@ -27,6 +27,17 @@ export function POSPage() {
     },
     enabled: !!orderId,
     retry: 1,
+    select: (data: Order): Order => {
+      return {
+        ...data,
+        total: parseFloat(String(data.total)),
+        items: data.items.map((item: OrderItem) => ({
+          ...item,
+          price: parseFloat(String(item.price)),
+          quantity: parseInt(String(item.quantity), 10),
+        })),
+      };
+    }
   });
 
   const completeOrderMutation = useMutation<Order, Error, number>({
@@ -40,6 +51,7 @@ export function POSPage() {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       if (completedOrder && completedOrder.id) {
         queryClient.invalidateQueries({ queryKey: ['orders', completedOrder.id.toString()] });
+        handlePrintOrder(completedOrder);
       }
     },
     onError: (error) => {
@@ -122,25 +134,12 @@ export function POSPage() {
     if (!orderToPrint || !orderToPrint.id) return;
     try {
       const apiUrl = import.meta.env.VITE_API_URL || '';
-      await axios.post(`${apiUrl}/api/orders/${orderToPrint.id}/print`);
-      console.log('Solicitud de impresión enviada para la orden:', orderToPrint.id);
+      await axios.post(`${apiUrl}/api/orders/${orderToPrint.id}/reprint`);
+      console.log('Solicitud de reimpresión enviada para la orden:', orderToPrint.id);
     } catch (error) {
-      console.error('Error al solicitar la impresión:', error);
-      alert('La orden fue completada, pero hubo un error al intentar imprimir el recibo. Revise la conexión de la impresora y la configuración del backend.');
+      console.error('Error al solicitar la reimpresión:', error);
+      alert('La orden fue completada, pero hubo un error al intentar reimprimir el recibo. Revise la conexión de la impresora y la configuración del backend.');
     }
-  };
-
-  completeOrderMutation.options.onSuccess = (completedOrder) => {
-    console.log('Orden completada y stock actualizado en backend:', completedOrder);
-    alert('¡Pedido completado y stock de ingredientes actualizado exitosamente!');
-
-    queryClient.invalidateQueries({ queryKey: ['ingredients'] });
-    queryClient.invalidateQueries({ queryKey: ['products'] });
-    queryClient.invalidateQueries({ queryKey: ['orders'] });
-    if (completedOrder && completedOrder.id) {
-      queryClient.invalidateQueries({ queryKey: ['orders', completedOrder.id.toString()] });
-    }
-    handlePrintOrder(completedOrder);
   };
 
   return (

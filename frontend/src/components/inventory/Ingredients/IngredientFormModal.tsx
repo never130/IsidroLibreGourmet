@@ -50,6 +50,9 @@ export function IngredientFormModal({ isOpen, onClose, ingredientToEdit }: Ingre
   const queryClient = useQueryClient();
   const isEditMode = !!ingredientToEdit;
 
+  // DEBUG: Log del enum IngredientUnit al inicio del componente
+  console.log("DEBUG MODAL: IngredientUnit enum al inicio:", IngredientUnit);
+
   const { register, handleSubmit, reset, control, formState: { errors, isSubmitting }, setValue } = useForm<IngredientFormData>({
     resolver: zodResolver(ingredientFormSchema),
     defaultValues: {
@@ -70,7 +73,7 @@ export function IngredientFormModal({ isOpen, onClose, ingredientToEdit }: Ingre
       reset({
         name: '',
         stockQuantity: 0,
-        unitOfMeasure: IngredientUnit.GRAMS, // Valor por defecto para nuevos ingredientes
+        unitOfMeasure: IngredientUnit.GRAM,
       });
     }
   }, [ingredientToEdit, reset]);
@@ -127,21 +130,34 @@ export function IngredientFormModal({ isOpen, onClose, ingredientToEdit }: Ingre
               <Controller
                 name="unitOfMeasure"
                 control={control}
-                render={({ field }) => (
-                  <Select
-                    value={field.value}
-                    onValueChange={field.onChange}
-                    defaultValue={IngredientUnit.GRAMS}
-                  >
-                    <SelectTrigger id="unitOfMeasure">
-                      <SelectValue placeholder="Seleccionar unidad" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={IngredientUnit.GRAMS}>Gramos (g)</SelectItem>
-                      <SelectItem value={IngredientUnit.CUBIC_CENTIMETERS}>Centímetros cúbicos (cm³)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
+                render={({ field }) => {
+                  // DEBUG: Log del field.value dentro del Controller
+                  console.log("DEBUG MODAL: field.value para unitOfMeasure:", field.value);
+                  console.log("DEBUG MODAL: field object:", field);
+                  return (
+                    <Select
+                      value={field.value}
+                      onValueChange={field.onChange}
+                      defaultValue={ingredientToEdit ? ingredientToEdit.unitOfMeasure : IngredientUnit.GRAM}
+                    >
+                      <SelectTrigger id="unitOfMeasure">
+                        <SelectValue placeholder="Seleccionar unidad" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem key={IngredientUnit.GRAM} value={IngredientUnit.GRAM}>{IngredientUnit.GRAM}</SelectItem>
+                        <SelectItem key={IngredientUnit.KILOGRAM} value={IngredientUnit.KILOGRAM}>{IngredientUnit.KILOGRAM}</SelectItem>
+                        <SelectItem key={IngredientUnit.MILLILITER} value={IngredientUnit.MILLILITER}>{IngredientUnit.MILLILITER}</SelectItem>
+                        <SelectItem key={IngredientUnit.LITER} value={IngredientUnit.LITER}>{IngredientUnit.LITER}</SelectItem>
+                        <SelectItem key={IngredientUnit.UNIT} value={IngredientUnit.UNIT}>{IngredientUnit.UNIT}</SelectItem>
+                        <SelectItem key={IngredientUnit.TEASPOON} value={IngredientUnit.TEASPOON}>{IngredientUnit.TEASPOON}</SelectItem>
+                        <SelectItem key={IngredientUnit.TABLESPOON} value={IngredientUnit.TABLESPOON}>{IngredientUnit.TABLESPOON}</SelectItem>
+                        <SelectItem key={IngredientUnit.CUP} value={IngredientUnit.CUP}>{IngredientUnit.CUP}</SelectItem>
+                        <SelectItem key={IngredientUnit.PINCH} value={IngredientUnit.PINCH}>{IngredientUnit.PINCH}</SelectItem>
+                        <SelectItem key={IngredientUnit.OTHER} value={IngredientUnit.OTHER}>{IngredientUnit.OTHER}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  );
+                }}
               />
               {errors.unitOfMeasure && <p className="text-xs text-red-500 mt-1">{errors.unitOfMeasure.message}</p>}
             </div>

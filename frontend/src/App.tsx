@@ -12,6 +12,7 @@ import { Expenses } from './pages/Expenses';
 import { Reports } from './pages/Reports';
 import { Settings } from './pages/Settings';
 import { POSPage } from './pages/POSPage';
+import { POSQueuePage } from './pages/POSQueuePage';
 import { NotFound } from './pages/NotFound';
 import { UsersPage } from './pages/UsersPage';
 import { IngredientsPage } from './pages/Inventory/IngredientsPage';
@@ -115,11 +116,21 @@ export function App() {
               }
             />
             <Route
+              path="/pos/:orderId"
+              element={
+                <PrivateRouteComponent>
+                  <MainLayout title="Procesar Pedido">
+                    <POSPage />
+                  </MainLayout>
+                </PrivateRouteComponent>
+              }
+            />
+            <Route
               path="/pos"
               element={
                 <PrivateRouteComponent>
-                  <MainLayout title="Punto de Venta">
-                    <POSPage />
+                  <MainLayout title="Cola de POS">
+                    <POSQueuePage />
                   </MainLayout>
                 </PrivateRouteComponent>
               }

@@ -1,4 +1,4 @@
-import { useForm, Controller, SubmitHandler } from 'react-hook-form';
+import { useForm, Controller, SubmitHandler, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -21,11 +21,12 @@ const productSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
   description: z.string().optional(),
   price: z.number().min(0, 'El precio debe ser mayor o igual a 0'),
-  stock: z.number().min(0, 'El stock debe ser mayor o igual a 0'),
+  stock: z.number().min(0, 'El stock debe ser mayor o igual a 0').optional(),
   cost: z.number().min(0, 'El costo debe ser mayor o igual a 0'),
   category: z.nativeEnum(ProductCategory, { errorMap: () => ({ message: 'Categoría inválida' }) }),
   imageUrl: z.string().url('Debe ser una URL válida').optional().or(z.literal('')),
   isActive: z.boolean(),
+  manageStock: z.boolean(),
 });
 
 type ProductFormData = z.infer<typeof productSchema>;
@@ -71,28 +72,32 @@ export function ProductForm({ product, onClose }: ProductFormProps) {
     }
   }, [product]);
 
-  const { register, handleSubmit, formState: { errors }, control, reset } = useForm<ProductFormData>({
+  const { register, handleSubmit, formState: { errors }, control, reset, watch: formWatch, setValue } = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
     defaultValues: product ? {
       name: product.name,
       description: product.description ?? '',
       price: Number(product.price),
-      stock: Number(product.stock),
+      stock: product.manageStock ? Number(product.stock) : undefined,
       cost: Number(product.cost),
       category: product.category,
       imageUrl: product.imageUrl ?? '',
       isActive: product.isActive,
+      manageStock: product.manageStock,
     } : {
       name: '',
       description: '',
       price: 0,
       stock: 0,
       cost: 0,
-      category: ProductCategory.FOOD,
+      category: ProductCategory.PLATOS_FUERTES,
       imageUrl: '',
       isActive: true,
+      manageStock: true,
     }
   });
+
+  const manageStockValue = formWatch('manageStock');
 
   useEffect(() => {
     if (product) {
@@ -100,25 +105,89 @@ export function ProductForm({ product, onClose }: ProductFormProps) {
         name: product.name,
         description: product.description ?? '',
         price: Number(product.price),
-        stock: Number(product.stock),
+        stock: product.manageStock ? Number(product.stock) : undefined,
         cost: Number(product.cost),
         category: product.category,
         imageUrl: product.imageUrl ?? '',
         isActive: product.isActive,
+        manageStock: product.manageStock,
       });
+      if (!product.manageStock) {
+        setRecipeItems([]);
+        recipeService.getByProductId(product.id).then(data => {
+          if (data) {
+            setCurrentRecipe(data);
+            setRecipeItems(data.items.map(item => ({ 
+              ingredientId: item.ingredientId, 
+              quantity: item.quantity, 
+              notes: item.notes 
+            })));
+          }
+        }).catch(err => {
+          console.error("Error fetching recipe for existing product:", err);
+          setCurrentRecipe(null);
+          setRecipeItems([]);
+        });
+      } else {
+        setCurrentRecipe(null);
+        setRecipeItems([]);
+      }
     } else {
       reset({
         name: '',
         description: '',
         price: 0,
-        stock: 0,
+        stock: manageStockValue ? 0 : undefined,
         cost: 0,
-        category: ProductCategory.FOOD,
+        category: ProductCategory.PLATOS_FUERTES,
         imageUrl: '',
         isActive: true,
+        manageStock: true,
       });
+      setCurrentRecipe(null);
+      setRecipeItems([]);
+      if (manageStockValue) {
+        setValue('stock', 0);
+      } else {
+        setValue('stock', undefined);
+      }
     }
   }, [product, reset]);
+
+  useEffect(() => {
+    if (manageStockValue) {
+      setRecipeItems([]);
+      setCurrentRecipe(null);
+      if (product && product.manageStock) {
+        setValue('stock', Number(product.stock));
+      } else if (product && !product.manageStock) {
+        setValue('stock', 0);
+      } else if (!product) {
+        setValue('stock', 0);
+      }
+    } else {
+      setValue('stock', undefined);
+      if (product && !product.manageStock) {
+        if (recipeItems.length === 0) {
+          recipeService.getByProductId(product.id).then(data => {
+            if (data) {
+              setCurrentRecipe(data);
+              setRecipeItems(data.items.map(item => ({ 
+                ingredientId: item.ingredientId, 
+                quantity: item.quantity, 
+                notes: item.notes 
+              })));
+            }
+          }).catch(err => {
+            console.error("Error refetching recipe on manageStock change:", err);
+          });
+        }
+      } else if (product && product.manageStock) {
+        setRecipeItems([]);
+        setCurrentRecipe(null);
+      }
+    }
+  }, [manageStockValue, product, setValue]);
 
   const productMutation = useMutation<AxiosResponse<Product>, AxiosError, ProductFormData>({
     mutationFn: async (data: ProductFormData): Promise<AxiosResponse<Product>> => {
@@ -126,6 +195,15 @@ export function ProductForm({ product, onClose }: ProductFormProps) {
       if (payload.imageUrl === '') {
         delete payload.imageUrl;
       }
+      
+      if (payload.manageStock) {
+        if (payload.stock === undefined || payload.stock === null || isNaN(payload.stock)) {
+          payload.stock = 0;
+        }
+      } else {
+        payload.stock = 0;
+      }
+
       if (product && product.id) {
         return axios.put<Product>(`/api/products/${product.id}`, payload);
       } else {
@@ -136,12 +214,30 @@ export function ProductForm({ product, onClose }: ProductFormProps) {
       const savedProduct = response.data;
       queryClient.invalidateQueries({ queryKey: ['products'] });
 
-      let recipeOperationCompleted = false;
       let recipeErrorOccurred = false;
+      let recipeOperationAttempted = false; 
+
+      setIsSavingRecipe(true);
 
       if (savedProduct && savedProduct.id) {
-        if (recipeItems.length > 0 || (currentRecipe && currentRecipe.id)) {
-          setIsSavingRecipe(true);
+        if (savedProduct.manageStock) {
+          if (currentRecipe && currentRecipe.id) {
+            try {
+              await recipeService.delete(currentRecipe.id);
+              console.log(`Receta ${currentRecipe.id} eliminada para producto ${savedProduct.id} porque manageStock es true.`);
+              setCurrentRecipe(null);
+              setRecipeItems([]);
+              queryClient.invalidateQueries({ queryKey: ['recipes', savedProduct.id] });
+              queryClient.invalidateQueries({ queryKey: ['recipes'] });
+            } catch (deleteError) {
+              console.error("Error eliminando receta antigua:", deleteError);
+              alert("El producto se guardó, pero hubo un error eliminando su receta anterior. Por favor, verifíquela manualmente.");
+              recipeErrorOccurred = true;
+            }
+          }
+          recipeOperationAttempted = true;
+        } else {
+          recipeOperationAttempted = true;
           try {
             if (recipeItems.length > 0) {
               const recipePayload: CreateRecipeDto | UpdateRecipeDto = {
@@ -157,6 +253,7 @@ export function ProductForm({ product, onClose }: ProductFormProps) {
               }
             } else if (currentRecipe && currentRecipe.id) {
               await recipeService.delete(currentRecipe.id);
+              setCurrentRecipe(null);
             }
             queryClient.invalidateQueries({ queryKey: ['recipes', savedProduct.id] });
             queryClient.invalidateQueries({ queryKey: ['recipes'] });
@@ -164,16 +261,15 @@ export function ProductForm({ product, onClose }: ProductFormProps) {
             console.error("Error al guardar la receta:", recipeError);
             alert("El producto se guardó, pero hubo un error con su receta. Por favor, verifique los detalles de la receta.");
             recipeErrorOccurred = true;
-          } finally {
-            setIsSavingRecipe(false);
-            recipeOperationCompleted = true;
           }
-        } else {
-          recipeOperationCompleted = true;
         }
+      } else {
+        recipeOperationAttempted = true;
       }
+      
+      setIsSavingRecipe(false);
 
-      if (recipeOperationCompleted || !(savedProduct && savedProduct.id)) {
+      if ((recipeOperationAttempted && !recipeErrorOccurred) || !savedProduct || !savedProduct.id ) {
         onClose();
       }
     },
@@ -250,11 +346,13 @@ export function ProductForm({ product, onClose }: ProductFormProps) {
               <input id="price" {...register('price', { valueAsNumber: true })} type="number" step="0.01" className="w-full p-2 border rounded-md bg-input" />
               {errors.price && <p className="text-sm text-red-600 mt-1">{errors.price.message}</p>}
             </div>
-            <div>
-              <label htmlFor="stock" className="block text-sm font-medium mb-1">Stock</label>
-              <input id="stock" {...register('stock', { valueAsNumber: true })} type="number" step="1" className="w-full p-2 border rounded-md bg-input" />
-              {errors.stock && <p className="text-sm text-red-600 mt-1">{errors.stock.message}</p>}
-            </div>
+            {manageStockValue && (
+              <div>
+                <label htmlFor="stock" className="block text-sm font-medium mb-1">Stock</label>
+                <input id="stock" {...register('stock', { valueAsNumber: true })} type="number" step="1" className="w-full p-2 border rounded-md bg-input" />
+                {errors.stock && <p className="text-sm text-red-600 mt-1">{errors.stock.message}</p>}
+              </div>
+            )}
             <div>
               <label htmlFor="cost" className="block text-sm font-medium mb-1">Costo</label>
               <input id="cost" {...register('cost', { valueAsNumber: true })} type="number" step="0.01" className="w-full p-2 border rounded-md bg-input" />
@@ -301,57 +399,79 @@ export function ProductForm({ product, onClose }: ProductFormProps) {
             <label htmlFor="isActive" className="text-sm font-medium">Activo</label>
           </div>
 
-          <div className="space-y-3 pt-3 border-t">
-            <h3 className="text-lg font-medium">Receta (Opcional)</h3>
-            {isLoadingIngredients && <p>Cargando ingredientes...</p>}
-            {allIngredients && (
-              <div className="flex items-end gap-2">
-                <div className="flex-grow">
-                  <Label htmlFor="ingredient-select">Ingrediente</Label>
-                  <ShadcnSelect value={selectedIngredientId} onValueChange={setSelectedIngredientId}>
-                    <SelectTrigger id="ingredient-select"><SelectValue placeholder="Seleccionar ingrediente" /></SelectTrigger>
-                    <SelectContent>
-                      {allIngredients.map(ing => (
-                        <SelectItem key={ing.id} value={ing.id.toString()}>{ing.name} ({ing.unitOfMeasure})</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </ShadcnSelect>
-                </div>
-                <div className="w-24">
-                  <Label htmlFor="ingredient-quantity">Cantidad</Label>
-                  <Input 
-                    id="ingredient-quantity" 
-                    type="number" 
-                    value={selectedIngredientQuantity} 
-                    onChange={(e) => setSelectedIngredientQuantity(e.target.value)} 
-                    placeholder="Ej: 100"
-                    min="0.01" 
-                    step="0.01"
-                  />
-                </div>
-                <Button type="button" onClick={handleAddRecipeItem} variant="outline" size="icon" disabled={isCurrentlySaving || !selectedIngredientId}><PlusCircle className="h-5 w-5"/></Button>
-              </div>
-            )}
-            {recipeItems.length > 0 && (
-              <div className="space-y-2 mt-2">
-                <p className="text-sm font-medium">Ingredientes en la receta:</p>
-                <ul className="list-disc list-inside pl-1 space-y-1">
-                  {recipeItems.map(item => {
-                    const ingredientDetails = allIngredients?.find(ing => ing.id === item.ingredientId);
-                    return (
-                      <li key={item.ingredientId} className="text-sm flex justify-between items-center">
-                        <span>
-                          {ingredientDetails ? `${ingredientDetails.name}: ${item.quantity} ${ingredientDetails.unitOfMeasure}` : `Ingrediente ID ${item.ingredientId}: ${item.quantity}`}
-                          {item.notes && <span className="text-xs text-gray-500 italic ml-1">({item.notes})</span>}
-                        </span>
-                        <Button type="button" onClick={() => handleRemoveRecipeItem(item.ingredientId)} variant="ghost" size="icon" className="h-6 w-6 text-destructive" disabled={isCurrentlySaving}><Trash2 className="h-4 w-4"/></Button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            )}
+          <div className="flex items-center space-x-2">
+            <Controller
+                name="manageStock"
+                control={control}
+                render={({ field }) => (
+                    <input 
+                        type="checkbox" 
+                        id="manageStock" 
+                        checked={field.value} 
+                        onChange={(e) => field.onChange(e.target.checked)} 
+                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                )}
+            />
+            <label htmlFor="manageStock" className="text-sm font-medium">Gestionar Stock Directamente</label>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Si está marcado, el stock de este producto se maneja directamente (ej: Gaseosas). Si no, el stock se descontará de los ingredientes de su receta (ej: Platos preparados).
+          </p>
+
+          {!manageStockValue && (
+            <div className="space-y-3 pt-3 border-t">
+              <h3 className="text-lg font-medium">Receta (Para productos que no gestionan stock directamente)</h3>
+              {isLoadingIngredients && <p>Cargando ingredientes...</p>}
+              {allIngredients && (
+                <div className="flex items-end gap-2">
+                  <div className="flex-grow">
+                    <Label htmlFor="ingredient-select">Ingrediente</Label>
+                    <ShadcnSelect value={selectedIngredientId} onValueChange={setSelectedIngredientId}>
+                      <SelectTrigger id="ingredient-select"><SelectValue placeholder="Seleccionar ingrediente" /></SelectTrigger>
+                      <SelectContent>
+                        {allIngredients.map(ing => (
+                          <SelectItem key={ing.id} value={ing.id.toString()}>{ing.name} ({ing.unitOfMeasure})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </ShadcnSelect>
+                  </div>
+                  <div className="w-24">
+                    <Label htmlFor="ingredient-quantity">Cantidad</Label>
+                    <Input 
+                      id="ingredient-quantity" 
+                      type="number" 
+                      value={selectedIngredientQuantity} 
+                      onChange={(e) => setSelectedIngredientQuantity(e.target.value)} 
+                      placeholder="Ej: 100"
+                      min="0.01" 
+                      step="0.01"
+                    />
+                  </div>
+                  <Button type="button" onClick={handleAddRecipeItem} variant="outline" size="icon" disabled={isCurrentlySaving || !selectedIngredientId}><PlusCircle className="h-5 w-5"/></Button>
+                </div>
+              )}
+              {recipeItems.length > 0 && (
+                <div className="space-y-2 mt-2">
+                  <p className="text-sm font-medium">Ingredientes en la receta:</p>
+                  <ul className="list-disc list-inside pl-1 space-y-1">
+                    {recipeItems.map(item => {
+                      const ingredientDetails = allIngredients?.find(ing => ing.id === item.ingredientId);
+                      return (
+                        <li key={item.ingredientId} className="text-sm flex justify-between items-center">
+                          <span>
+                            {ingredientDetails ? `${ingredientDetails.name}: ${item.quantity} ${ingredientDetails.unitOfMeasure}` : `Ingrediente ID ${item.ingredientId}: ${item.quantity}`}
+                            {item.notes && <span className="text-xs text-gray-500 italic ml-1">({item.notes})</span>}
+                          </span>
+                          <Button type="button" onClick={() => handleRemoveRecipeItem(item.ingredientId)} variant="ghost" size="icon" className="h-6 w-6 text-destructive" disabled={isCurrentlySaving}><Trash2 className="h-4 w-4"/></Button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex justify-end space-x-3 pt-4 border-t">
             <Button type="button" variant="outline" onClick={onClose} disabled={isCurrentlySaving}>Cancelar</Button>

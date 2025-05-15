@@ -1,10 +1,17 @@
 import type { Recipe } from './recipe';
 
 export enum ProductCategory {
-  FOOD = 'FOOD',
-  DRINK = 'DRINK',
-  SNACK = 'SNACK',
-  OTHER = 'OTHER'
+  BEBIDAS = 'Bebidas',
+  PLATOS_FUERTES = 'Platos Fuertes',
+  ENTRADAS = 'Entradas',
+  POSTRES = 'Postres',
+  SNACKS = 'Snacks',
+  OTROS = 'Otros',
+  // Comentados los valores anteriores para referencia:
+  // FOOD = 'FOOD',
+  // DRINK = 'DRINK',
+  // SNACK = 'SNACK',
+  // OTHER = 'OTHER'
 }
 
 export interface Product {

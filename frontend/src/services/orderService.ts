@@ -4,6 +4,12 @@ import type { CreateOrderDto } from '../types/order.dto'; // Supondremos que exi
 
 const API_URL = '/api/orders';
 
+// Definir un tipo para los filtros opcionales
+interface GetOrdersFilters {
+  statuses?: string[]; // Array de estados, ej: ['pending', 'in_progress']
+  // Otros filtros podrían añadirse aquí en el futuro (ej: dateRange, customerId, etc.)
+}
+
 export const orderService = {
   // Crear un nuevo pedido
   createOrder: async (orderData: CreateOrderDto): Promise<Order> => {
@@ -17,9 +23,16 @@ export const orderService = {
     return response.data;
   },
 
-  // Obtener todos los pedidos (podría tener filtros/paginación en el futuro)
-  getAllOrders: async (): Promise<Order[]> => {
-    const response = await axios.get<Order[]>(API_URL);
+  // Obtener todos los pedidos, ahora con filtros opcionales
+  getAllOrders: async (filters?: GetOrdersFilters): Promise<Order[]> => {
+    let url = API_URL;
+    if (filters && filters.statuses && filters.statuses.length > 0) {
+      const statusesQuery = filters.statuses.map(status => `statuses[]=${encodeURIComponent(status)}`).join('&');
+      url += `?${statusesQuery}`;
+    }
+    // Aquí podrían añadirse más lógicas para otros filtros
+
+    const response = await axios.get<Order[]>(url);
     return response.data;
   },
 
@@ -39,4 +52,4 @@ export const orderService = {
 };
 
 // Nota: Necesitaremos definir los tipos Order, CreateOrderDto y OrderStatus en el frontend
-// en archivos como frontend/src/types/order.ts y frontend/src/types/order.dto.ts 
+// en archivos como frontend/src/types/order.ts y frontend/src/types/order.dto.ts

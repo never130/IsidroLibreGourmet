@@ -36,13 +36,26 @@ export class OrderController {
    */
   async getAll(req: Request, res: Response) {
     try {
-      const orders = await this.orderRepository.find({
-        relations: ['items', 'items.product', 'createdBy'],
-        order: { createdAt: 'DESC' }
-      });
-      // Log para depuración
-      console.log(`[${new Date().toISOString()}] GET /api/orders - Enviando ${orders.length} órdenes. Primera orden ID (si existe): ${orders[0]?.id}`);
-      // console.log('Detalle de órdenes enviadas:', JSON.stringify(orders, null, 2)); // Descomentar para ver todo el detalle si es necesario
+      // Extraer el parámetro de consulta 'statuses'
+      // req.query.statuses puede ser undefined, string, o string[]
+      let statusesFilter: OrderStatus[] | undefined = undefined;
+      const statusesQuery = req.query.statuses;
+
+      if (typeof statusesQuery === 'string') {
+        statusesFilter = [statusesQuery as OrderStatus];
+      } else if (Array.isArray(statusesQuery) && statusesQuery.every(s => typeof s === 'string')) {
+        statusesFilter = statusesQuery as OrderStatus[];
+      }
+      
+      // Validar que los estados sean conocidos por el enum OrderStatus (opcional pero recomendado)
+      if (statusesFilter) {
+        statusesFilter = statusesFilter.filter(s => Object.values(OrderStatus).includes(s));
+        if (statusesFilter.length === 0) statusesFilter = undefined; // Si ninguno es válido, no filtrar
+      }
+
+      const orders = await this.orderService.findAll(statusesFilter);
+      
+      console.log(`[${new Date().toISOString()}] GET /api/orders${statusesFilter ? `?statuses=${statusesFilter.join(',')}` : ''} - Enviando ${orders.length} órdenes.`);
       res.json(orders);
     } catch (error: any) {
       console.error('Error getting orders:', error);

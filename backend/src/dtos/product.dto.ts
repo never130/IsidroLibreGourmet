@@ -31,6 +31,9 @@ export class CreateProductDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @IsBoolean()
+  manageStock: boolean;
 }
 
 export class UpdateProductDto {
@@ -68,6 +71,10 @@ export class UpdateProductDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  manageStock?: boolean;
 }
 
 export class UpdateProductStockDto {

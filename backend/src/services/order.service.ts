@@ -86,7 +86,6 @@ export class OrderService {
         }
 
         const orderItem = orderItemRepo.create({
-          order: newOrder, // Vincular el ítem a la instancia de newOrder
           product: product,
           productId: product.id,
           quantity: itemDto.quantity,
@@ -98,11 +97,29 @@ export class OrderService {
 
       newOrder.total = parseFloat(calculatedTotal.toFixed(2));
       
+      console.log('Objeto newOrder ANTES de guardar:', JSON.stringify(newOrder, null, 2));
       const savedOrder = await orderRepo.save(newOrder); // Guardar la Order con sus items en cascada
       
-      // Podría ser útil imprimir la comanda aquí si es necesario
-      // await printerService.printKitchenOrder(savedOrder); // Ejemplo conceptual
+      // --- INICIO MARCADOR DE COMANDERA ---
+      console.log(`[COMANDERA SIMULADA] Pedido ID: ${savedOrder.id} creado.`);
+      console.log(`[COMANDERA SIMULADA] Cliente: ${savedOrder.customerName}, Tipo: ${savedOrder.type}`);
+      if(savedOrder.items && savedOrder.items.length > 0) {
+        savedOrder.items.forEach(item => {
+          // Para obtener el nombre del producto, necesitaríamos cargarlo o ya tenerlo.
+          // Asumiendo que item.product está disponible si la relación se carga después o se pasa.
+          // Por simplicidad, aquí solo mostraremos productId y quantity.
+          // En una implementación real, cargaríamos los nombres de producto para la comandera.
+          console.log(`[COMANDERA SIMULADA] Item: ProductID ${item.productId}, Cantidad: ${item.quantity}, Precio: ${item.price}`);
+        });
+      } else {
+        console.log('[COMANDERA SIMULADA] El pedido no tiene items.');
+      }
+      if (savedOrder.notes) {
+        console.log(`[COMANDERA SIMULADA] Notas: ${savedOrder.notes}`);
+      }
+      // --- FIN MARCADOR DE COMANDERA ---
 
+      // Recargar la orden con todas las relaciones necesarias para la respuesta
       return orderRepo.findOneOrFail({
           where: { id: savedOrder.id },
           relations: ['items', 'items.product', 'createdBy']
@@ -126,6 +143,28 @@ export class OrderService {
     });
   }
   
+  /**
+   * Busca todos los pedidos, opcionalmente filtrados por estado.
+   * @param statuses - Un array opcional de estados por los cuales filtrar los pedidos.
+   * @returns Una promesa que resuelve a un array de entidades Order.
+   */
+  async findAll(statuses?: OrderStatus[]): Promise<Order[]> {
+    const findOptions: import('typeorm').FindManyOptions<Order> = {
+      relations: ['items', 'items.product', 'createdBy'],
+      order: { createdAt: 'DESC' }, // O el orden que prefieras
+    };
+
+    if (statuses && statuses.length > 0) {
+      // Asegurarse de que los estados son válidos si es necesario
+      const validStatuses = statuses.filter(s => Object.values(OrderStatus).includes(s));
+      if (validStatuses.length > 0) {
+        findOptions.where = validStatuses.map(status => ({ status })); 
+        // Esto crea una condición OR para los estados: [{ status: 'pending' }, { status: 'in_progress' }]
+      }
+    }
+    return this.orderRepository.find(findOptions);
+  }
+
   /**
    * Actualiza el estado de un pedido existente.
    * @param orderId - El ID del pedido a actualizar.

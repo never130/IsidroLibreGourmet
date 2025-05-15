@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/layout/Layout';
 import { Order, OrderStatus, OrderType, PaymentMethod, type UpdateOrderStatusDto, OrderItem as OrderItemType } from '../types/order';
 import { Product } from '../types/product';
@@ -10,6 +11,7 @@ import { Printer } from 'lucide-react';
 
 export function Orders() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus | 'ALL'>('ALL');
   const [selectedType, setSelectedType] = useState<OrderType | 'ALL'>('ALL');
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -69,6 +71,16 @@ export function Orders() {
 
   const handleCreate = () => {
     setIsFormOpen(true);
+  };
+
+  const handleCreateOrderSuccess = (createdOrder: Order) => {
+    setIsFormOpen(false);
+    if (createdOrder && createdOrder.id) {
+      navigate(`/pos/${createdOrder.id}`);
+    } else {
+      console.warn('Pedido creado, pero no se recibió ID para la redirección.');
+      // Opcionalmente, notificar al usuario aquí
+    }
   };
 
   const handleCloseForm = () => {
@@ -147,7 +159,7 @@ export function Orders() {
             </div>
           </div>
           
-          {isFormOpen && <OrderForm onSuccess={handleCloseForm} />}
+          {isFormOpen && <OrderForm onSuccess={handleCreateOrderSuccess} />}
           {printingOrderData && <OrderTicket order={printingOrderData} onClose={handleClosePrintTicket} />}
 
           <div className="bg-card rounded-lg shadow">
